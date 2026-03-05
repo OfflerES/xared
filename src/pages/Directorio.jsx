@@ -209,11 +209,21 @@ export default function Directorio({ region, subPais, showAll }) {
   // Nombre de categoría según idioma del selector
   const catNombre = (c) => (lang === 'en' && c?.nombre_en) ? c.nombre_en : (c?.nombre || '')
 
-  useEffect(() => {
-    setPagina(0); setEmpresas([]); setProductos([])
-  }, [region, paisCode, categoria, busqueda, provincia, paisFiltro, porPagina])
+  // ── Clave de búsqueda: cuando cambian los filtros principales, volvemos a página 0
+  // Un único useEffect maneja todo: resetea pagina si los filtros cambian, luego carga
+  const filtersKey = [region, paisCode, categoria, busqueda, provincia, paisFiltro, porPagina].join('|')
 
-  useEffect(() => { load() }, [region, paisCode, categoria, busqueda, pagina, provincia, paisFiltro, porPagina])
+  useEffect(() => {
+    setPagina(0)
+    setEmpresas([])
+    setProductos([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersKey])
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersKey, pagina])
 
   useEffect(() => {
     const cat = categorias.find(c => c.slug === categoria)
@@ -221,6 +231,7 @@ export default function Directorio({ region, subPais, showAll }) {
     document.title = cat ? catNombre(cat) + ' — Xared'
       : paisInfo ? paisLabel(paisInfo, isUE) + ' — Xared'
       : 'Directorio ' + cfg.label + ' — Xared'
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [region, paisCode, categoria, categorias, lang])
 
   const applyRegionFilter = (q) => {
