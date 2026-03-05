@@ -1,0 +1,15 @@
+Cloudflare API
+ZONE ID : c8e8a0c6140d92e66ef6591ac2f692c9
+ACCOUNT ID 91129c59a45d98a305b4655f588e41ab
+
+DNS Cloudflare ya configurados en Godaddy
+lorna.ns.cloudflare.com
+sean.ns.cloudflare.com
+
+IP Servidor : 212.47.69.170
+
+SSH
+usuario: root
+Contraseña : DD1987pe
+
+
