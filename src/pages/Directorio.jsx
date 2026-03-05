@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
@@ -209,46 +209,42 @@ export default function Directorio({ region, subPais, showAll }) {
   // Nombre de categoría según idioma del selector
   const catNombre = (c) => (lang === 'en' && c?.nombre_en) ? c.nombre_en : (c?.nombre || '')
 
-  // ── Clave de búsqueda: cuando cambian los filtros principales, volvemos a página 0
-  // Un único useEffect maneja todo: resetea pagina si los filtros cambian, luego carga
-  const filtersKey = [region, paisCode, categoria, busqueda, provincia, paisFiltro, porPagina].join('|')
+  // Código ISO del país activo — primitivo estable para usar en dependencias
+  const paisCode_ = paisInfo?.code ?? null
 
-  useEffect(() => {
-    setPagina(0)
-    setEmpresas([])
-    setProductos([])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersKey])
-
-  useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersKey, pagina])
-
+  // Título de la página
   useEffect(() => {
     const cat = categorias.find(c => c.slug === categoria)
     const isUE = region === 'ue'
     document.title = cat ? catNombre(cat) + ' — Xared'
       : paisInfo ? paisLabel(paisInfo, isUE) + ' — Xared'
       : 'Directorio ' + cfg.label + ' — Xared'
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [region, paisCode, categoria, categorias, lang])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region, paisCode_, categoria, categorias, lang])
 
-  const applyRegionFilter = (q) => {
-    // Si hay pais, resolvemos el code ISO desde paisInfo (soporta slug o code en URL)
-    const code = paisInfo ? paisInfo.code : (paisFiltro || null)
-    if (code) return q.eq('pais', code)
-    if (region === 'spain')  return q.eq('pais', 'ES')
-    if (region === 'ue')     return q.in('pais', ['ES', ...PAISES_UE])
-    if (region === 'latam')  return q.eq('origen', 'latam')
-    return q
-  }
+  // Resetear página cuando cambian filtros (sin incluir pagina en la key)
+  const filtersStr = [region, paisCode_, categoria, busqueda, provincia, paisFiltro, porPagina].join('|')
+  useEffect(() => {
+    setPagina(0)
+    setEmpresas([])
+    setProductos([])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersStr])
 
-  const load = async () => {
-    setLoading(true)
-    const term = busqueda.trim() ? '%' + busqueda.trim() + '%' : null
-    const from = pagina * porPagina
-    const to   = from + porPagina - 1
+  useEffect(() => {
+    const applyRegionFilter = (q) => {
+      if (paisCode_) return q.eq('pais', paisCode_)
+      if (region === 'spain')  return q.eq('pais', 'ES')
+      if (region === 'ue')     return q.in('pais', ['ES', ...PAISES_UE])
+      if (region === 'latam')  return q.eq('origen', 'latam')
+      return q
+    }
+
+    const load = async () => {
+      setLoading(true)
+      const term = busqueda.trim() ? '%' + busqueda.trim() + '%' : null
+      const from = pagina * porPagina
+      const to   = from + porPagina - 1
 
     const PORD = { maximo:0, profesional:1, basico:2, gratuito:3 }
     const sortByPlan     = (arr) => (arr||[]).slice().sort((a,b) => (PORD[a.plan]??3)                  - (PORD[b.plan]??3))
@@ -304,6 +300,10 @@ export default function Directorio({ region, subPais, showAll }) {
     }
     setLoading(false)
   }
+
+    load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region, paisCode_, categoria, busqueda, pagina, provincia, paisFiltro, porPagina])
 
   // ── Navegación consciente de subdominios ──────────────────────────────────
   const isSubdomain = window.location.hostname.split('.').length > 2 &&
