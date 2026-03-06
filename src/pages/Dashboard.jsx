@@ -40,22 +40,19 @@ function UpsellBanner({ empresa, lang }) {
   let diasRestantes = null
   let fechaVenc     = null
 
-  if (empresa.plan_contratado_at && planActual !== 'gratuito') {
-    const contratado = new Date(empresa.plan_contratado_at)
-    const vencimiento = new Date(contratado)
-    vencimiento.setFullYear(vencimiento.getFullYear() + 1)
+  if (empresa.plan_expira_at && planActual !== 'gratuito') {
+    const vencimiento = new Date(empresa.plan_expira_at)
     const hoy = new Date()
     const totalDias = 365
     diasRestantes = Math.max(0, Math.round((vencimiento - hoy) / (1000 * 60 * 60 * 24)))
     fechaVenc = vencimiento
 
-    // Precio upgrade = precio nuevo - crédito proporcional del plan actual
+    // Paga solo el proporcional del plan nuevo por los días que quedan
+    // menos el crédito proporcional del plan actual
     const precioActual = precios[planActual] || 0
-    const creditoRestante = (precioActual / totalDias) * diasRestantes
-    const diferencia = precioFull - precioActual
-    precioUpgrade = Math.max(0, diferencia + creditoRestante * 0 | 0)
-    // Más claro: pagas solo el proporcional del plan nuevo por los días que quedan
-    precioUpgrade = ((precioFull / totalDias) * diasRestantes).toFixed(2)
+    const creditoActual = (precioActual / totalDias) * diasRestantes
+    const costeProporcionalNuevo = (precioFull / totalDias) * diasRestantes
+    precioUpgrade = Math.max(0, costeProporcionalNuevo - creditoActual).toFixed(2)
   }
 
   const planLabels = { gratuito:'Gratuito', basico:'Básico', profesional:'Profesional', maximo:'Máximo' }
@@ -65,14 +62,14 @@ function UpsellBanner({ empresa, lang }) {
   const emojis    = { basico:'⭐', profesional:'🚀', maximo:'👑' }
 
   const featuresEs = {
-    basico:      ['10 productos', '3 fotos/producto', 'Perfil destacado', 'Sin publicidad', 'Soporte email'],
-    profesional: ['20 productos', '5 fotos/producto', 'Badge verificado prioritario', 'Sin publicidad', 'Soporte prioritario'],
-    maximo:      ['50 productos', '10 fotos/producto', 'Posición privilegiada', 'Sin publicidad', 'Account manager dedicado'],
+    basico:      ['10 productos', '3 fotos/producto', 'Perfil destacado', 'Sin anuncios en tu perfil', 'Soporte email'],
+    profesional: ['20 productos', '5 fotos/producto', 'Badge verificado prioritario', 'Sin anuncios en tu perfil', 'Soporte prioritario'],
+    maximo:      ['50 productos', '10 fotos/producto', 'Posición privilegiada', 'Sin anuncios en tu perfil', 'Account manager dedicado'],
   }
   const featuresEn = {
-    basico:      ['10 products', '3 photos/product', 'Featured profile', 'Ad-free', 'Email support'],
-    profesional: ['20 products', '5 photos/product', 'Priority verified badge', 'Ad-free', 'Priority support'],
-    maximo:      ['50 products', '10 photos/product', 'Premium placement', 'Ad-free', 'Dedicated account manager'],
+    basico:      ['10 products', '3 photos/product', 'Featured profile', 'Ad-free company profile', 'Email support'],
+    profesional: ['20 products', '5 photos/product', 'Priority verified badge', 'Ad-free company profile', 'Priority support'],
+    maximo:      ['50 products', '10 photos/product', 'Premium placement', 'Ad-free company profile', 'Dedicated account manager'],
   }
   const features = (lang === 'en' ? featuresEn : featuresEs)[planSig] || []
   const gradients = {

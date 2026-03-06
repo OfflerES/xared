@@ -8,16 +8,16 @@ const PLAN_ORDER = ['gratuito', 'basico', 'profesional', 'maximo']
 
 const PLANES_BASE = {
   es: [
-    { id:'gratuito',    configKey: null,                    color:'var(--text-muted)', label:'Gratuito',    desc:'Para empezar',       features:['3 productos','1 foto/producto','Perfil básico','Solicitudes de presupuesto','Con publicidad'] },
-    { id:'basico',      configKey:'plan_precio_basico',     color:'var(--orange)',     label:'Básico',      desc:'Para crecer',        features:['10 productos','3 fotos/producto','Perfil destacado','Sin publicidad','Soporte email'] },
-    { id:'profesional', configKey:'plan_precio_profesional',color:'var(--gold)',       label:'Profesional', desc:'Para profesionales', features:['20 productos','5 fotos/producto','Badge verificado prioritario','Sin publicidad','Soporte prioritario'] },
-    { id:'maximo',      configKey:'plan_precio_maximo',     color:'var(--navy)',       label:'Máximo',      desc:'Para líderes',       features:['50 productos','10 fotos/producto','Posición privilegiada','Sin publicidad','Account manager dedicado'] },
+    { id:'gratuito',    configKey: null,                    color:'var(--text-muted)', label:'Gratuito',    desc:'Para empezar',       features:['3 productos','1 foto/producto','Perfil básico','Solicitudes de presupuesto','Con anuncios en tu perfil'] },
+    { id:'basico',      configKey:'plan_precio_basico',     color:'var(--orange)',     label:'Básico',      desc:'Para crecer',        features:['10 productos','3 fotos/producto','Perfil destacado','Sin anuncios en tu perfil','Soporte email'] },
+    { id:'profesional', configKey:'plan_precio_profesional',color:'var(--gold)',       label:'Profesional', desc:'Para profesionales', features:['20 productos','5 fotos/producto','Badge verificado prioritario','Sin anuncios en tu perfil','Soporte prioritario'] },
+    { id:'maximo',      configKey:'plan_precio_maximo',     color:'var(--navy)',       label:'Máximo',      desc:'Para líderes',       features:['50 productos','10 fotos/producto','Posición privilegiada','Sin anuncios en tu perfil','Account manager dedicado'] },
   ],
   en: [
-    { id:'gratuito',    configKey: null,                    color:'var(--text-muted)', label:'Free',        desc:'To get started',     features:['3 products','1 photo/product','Basic profile','Quote requests','With ads'] },
-    { id:'basico',      configKey:'plan_precio_basico',     color:'var(--orange)',     label:'Basic',       desc:'To grow',            features:['10 products','3 photos/product','Featured profile','Ad-free','Email support'] },
-    { id:'profesional', configKey:'plan_precio_profesional',color:'var(--gold)',       label:'Professional',desc:'For professionals',   features:['20 products','5 photos/product','Priority verified badge','Ad-free','Priority support'] },
-    { id:'maximo',      configKey:'plan_precio_maximo',     color:'var(--navy)',       label:'Maximum',     desc:'For market leaders', features:['50 products','10 photos/product','Premium placement','Ad-free','Dedicated account manager'] },
+    { id:'gratuito',    configKey: null,                    color:'var(--text-muted)', label:'Free',        desc:'To get started',     features:['3 products','1 photo/product','Basic profile','Quote requests','With ads on your profile'] },
+    { id:'basico',      configKey:'plan_precio_basico',     color:'var(--orange)',     label:'Basic',       desc:'To grow',            features:['10 products','3 photos/product','Featured profile','Ad-free company profile','Email support'] },
+    { id:'profesional', configKey:'plan_precio_profesional',color:'var(--gold)',       label:'Professional',desc:'For professionals',   features:['20 products','5 photos/product','Priority verified badge','Ad-free company profile','Priority support'] },
+    { id:'maximo',      configKey:'plan_precio_maximo',     color:'var(--navy)',       label:'Maximum',     desc:'For market leaders', features:['50 products','10 photos/product','Premium placement','Ad-free company profile','Dedicated account manager'] },
   ]
 }
 
@@ -33,16 +33,26 @@ export default function Pricing() {
   const [loadingPlan, setLoadingPlan] = useState(null)
   const [checkoutMsg, setCheckoutMsg] = useState(null)
 
-  // Plan actual del usuario (si está identificado)
-  const planActual = empresa?.plan || 'gratuito'
+  const planActual    = empresa?.plan || 'gratuito'
   const planActualIdx = PLAN_ORDER.indexOf(planActual)
 
-  // Qué planes mostrar:
-  // - No identificado: solo gratuito
-  // - Identificado: solo los planes superiores al actual (no el actual ni los inferiores)
+  // Planes visibles: no identificado → solo gratuito; identificado → solo superiores al actual
   const planesVisibles = !user
     ? todosPlanes.filter(p => p.id === 'gratuito')
     : todosPlanes.filter(p => PLAN_ORDER.indexOf(p.id) > planActualIdx)
+
+  // Cálculo de prorrateo
+  const calcProrrateo = (precioNuevo, precioActualVal) => {
+    if (!empresa?.plan_expira_at || planActual === 'gratuito') return null
+    const vencimiento = new Date(empresa.plan_expira_at)
+    const hoy = new Date()
+    const diasRestantes = Math.max(0, Math.round((vencimiento - hoy) / (1000 * 60 * 60 * 24)))
+    if (diasRestantes === 0) return null
+    const creditoActual = (precioActualVal / 365) * diasRestantes
+    const costePropNuevo = (precioNuevo / 365) * diasRestantes
+    const precio = Math.max(0, costePropNuevo - creditoActual).toFixed(2)
+    return { precio, diasRestantes, fechaVenc: vencimiento }
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -55,11 +65,7 @@ export default function Pricing() {
 
   useEffect(() => {
     supabase.from('config').select('clave,valor')
-      .in('clave', [
-        'plan_precio_basico', 'plan_precio_profesional', 'plan_precio_maximo',
-        'usd_eur_ratio',
-        'stripe_price_basico', 'stripe_price_profesional', 'stripe_price_maximo',
-      ])
+      .in('clave', ['plan_precio_basico','plan_precio_profesional','plan_precio_maximo','usd_eur_ratio','stripe_price_basico','stripe_price_profesional','stripe_price_maximo'])
       .then(({ data }) => {
         const c = {}
         ;(data || []).forEach(r => c[r.clave] = r.valor)
@@ -109,39 +115,31 @@ export default function Pricing() {
     <div>
       {/* Hero */}
       <div style={{background:'var(--navy)',padding:'56px 24px 72px',textAlign:'center'}}>
-        <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,color:'white',
-                    fontSize:'clamp(1.8rem,4vw,2.8rem)',marginBottom:12}}>
+        <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,color:'white',fontSize:'clamp(1.8rem,4vw,2.8rem)',marginBottom:12}}>
           {t('pricing_title', lang)}
         </h1>
         <p style={{color:'rgba(255,255,255,0.5)',fontSize:'.95rem'}}>
           {t('pricing_sub', lang)}
         </p>
-
-        {/* Indicador plan actual para usuarios identificados */}
         {user && empresa && (
-          <div style={{marginTop:20,display:'inline-block',background:'rgba(255,255,255,0.1)',
-                       border:'1px solid rgba(255,255,255,0.2)',borderRadius:20,
-                       padding:'6px 18px',fontSize:'.82rem',color:'rgba(255,255,255,0.8)'}}>
-            {es ? `Tu plan actual: ` : `Your current plan: `}
+          <div style={{marginTop:20,display:'inline-block',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:20,padding:'6px 18px',fontSize:'.82rem',color:'rgba(255,255,255,0.8)'}}>
+            {es ? 'Tu plan actual: ' : 'Your current plan: '}
             <strong style={{color:'white'}}>{planActual.charAt(0).toUpperCase() + planActual.slice(1)}</strong>
           </div>
         )}
       </div>
 
-      {/* Mensaje checkout */}
       {checkoutMsg && (
         <div style={{maxWidth:600,margin:'24px auto 0',padding:'12px 20px',borderRadius:8,
                      background: checkoutMsg.type==='error'?'#fee2e2':'#e0f2fe',
-                     color: checkoutMsg.type==='error'?'#991b1b':'#0369a1',
-                     fontSize:'.88rem',textAlign:'center'}}>
+                     color: checkoutMsg.type==='error'?'#991b1b':'#0369a1',fontSize:'.88rem',textAlign:'center'}}>
           {checkoutMsg.text}
         </div>
       )}
 
-      {/* Caso: usuario en plan máximo */}
+      {/* Usuario en plan máximo */}
       {user && planActual === 'maximo' && (
-        <div style={{maxWidth:600,margin:'40px auto',padding:'32px',borderRadius:16,
-                     background:'white',border:'2px solid var(--navy)',textAlign:'center'}}>
+        <div style={{maxWidth:600,margin:'40px auto',padding:'32px',borderRadius:16,background:'white',border:'2px solid var(--navy)',textAlign:'center'}}>
           <div style={{fontSize:'2rem',marginBottom:12}}>👑</div>
           <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,color:'var(--navy)',fontSize:'1.2rem',marginBottom:8}}>
             {es ? '¡Ya estás en el plan Máximo!' : 'You are already on the Maximum plan!'}
@@ -152,24 +150,24 @@ export default function Pricing() {
         </div>
       )}
 
-      {/* Cards de planes */}
+      {/* Cards */}
       {planesVisibles.length > 0 && (
         <div style={{maxWidth:1100,margin:'-40px auto 0',padding:'0 24px 60px',
-                     display:'grid',
-                     gridTemplateColumns:`repeat(${Math.min(planesVisibles.length, 3)},minmax(240px,1fr))`,
-                     gap:16}}>
+                     display:'grid',gridTemplateColumns:`repeat(${Math.min(planesVisibles.length,3)},minmax(240px,1fr))`,gap:16}}>
           {planesVisibles.map(p => {
-            const eurVal   = p.configKey ? precios[p.configKey] : null
-            const eurText  = eurVal ? formatEur(eurVal) : (p.id==='gratuito' ? (es?'Gratis':'Free') : '…')
-            const usdText  = eurVal ? formatUsd(eurVal) : null
+            const eurVal    = p.configKey ? precios[p.configKey] : null
+            const eurNum    = parseFloat(eurVal) || 0
+            const eurActual = parseFloat(precios[`plan_precio_${planActual}`]) || 0
+            const prorrateo = eurVal ? calcProrrateo(eurNum, eurActual) : null
+            const eurText   = eurVal ? formatEur(eurVal) : (p.id==='gratuito' ? (es?'Gratis':'Free') : '…')
+            const usdText   = eurVal ? formatUsd(eurVal) : null
             const isLoading = loadingPlan === p.id
 
             return (
               <div key={p.id} style={{
                 background:'white',
                 border:'2px solid '+(p.id==='profesional'?'var(--gold)':'var(--border)'),
-                borderRadius:16,padding:28,display:'flex',flexDirection:'column',
-                position:'relative',
+                borderRadius:16,padding:28,display:'flex',flexDirection:'column',position:'relative',
                 boxShadow:p.id==='profesional'?'0 8px 32px rgba(201,153,42,0.15)':'none'
               }}>
                 {p.id==='profesional' && (
@@ -180,43 +178,53 @@ export default function Pricing() {
                   </div>
                 )}
 
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1.05rem',
-                             color:'var(--navy)',marginBottom:4}}>{p.label}</div>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1.05rem',color:'var(--navy)',marginBottom:4}}>{p.label}</div>
                 <div style={{fontSize:'.82rem',color:'var(--text-muted)',marginBottom:20}}>{p.desc}</div>
 
+                {/* Precio completo */}
                 <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,
                              fontSize:p.id==='gratuito'?'1.5rem':'1.35rem',
-                             color:p.color,lineHeight:1.15,marginBottom:usdText?4:20,
-                             wordBreak:'keep-all',whiteSpace:'nowrap'}}>
+                             color:p.color,lineHeight:1.15,marginBottom:4,wordBreak:'keep-all',whiteSpace:'nowrap'}}>
                   {eurText}
                 </div>
 
                 {usdText && (
-                  <div style={{fontSize:'.75rem',color:'var(--text-muted)',marginBottom:20,fontStyle:'italic'}}>
+                  <div style={{fontSize:'.75rem',color:'var(--text-muted)',marginBottom:4,fontStyle:'italic'}}>
                     {usdText}
                   </div>
                 )}
 
+                {/* Precio prorrateado */}
+                {prorrateo && (
+                  <div style={{marginBottom:16,padding:'8px 12px',borderRadius:8,background:'rgba(22,163,74,0.06)',border:'1px solid rgba(22,163,74,0.2)',fontSize:'.8rem'}}>
+                    <strong style={{color:'var(--success)'}}>
+                      {es ? `Solo ${prorrateo.precio}€ ahora` : `Only €${prorrateo.precio} now`}
+                    </strong>
+                    <span style={{color:'var(--text-muted)',marginLeft:6}}>
+                      ({es ? 'hasta' : 'until'} {prorrateo.fechaVenc.toLocaleDateString(es?'es-ES':'en-GB')} · {prorrateo.diasRestantes} {es?'días':'days'})
+                    </span>
+                  </div>
+                )}
+
+                {!prorrateo && eurVal && <div style={{marginBottom:16}} />}
+
                 <ul style={{listStyle:'none',flex:1,marginBottom:24,padding:0}}>
                   {p.features.map(f => {
-                    const isNeg = f==='Con publicidad' || f==='With ads'
+                    const isNeg = f==='Con anuncios en tu perfil' || f==='With ads on your profile'
                     return (
                       <li key={f} style={{padding:'7px 0',borderBottom:'1px solid var(--cream-dark)',
                                           fontSize:'.83rem',color:isNeg?'var(--text-muted)':'var(--text)',
                                           display:'flex',alignItems:'center',gap:8}}>
-                        <span style={{color:isNeg?'var(--border)':'var(--success)',flexShrink:0}}>
-                          {isNeg?'·':'✔'}
-                        </span>
+                        <span style={{color:isNeg?'var(--border)':'var(--success)',flexShrink:0}}>{isNeg?'·':'✔'}</span>
                         {f}
                       </li>
                     )
                   })}
                 </ul>
 
-                {/* CTA */}
                 {p.id === 'gratuito' ? (
-                  <Link to="/registro" style={{display:'block',textAlign:'center',padding:'11px',
-                      borderRadius:8,border:'1px solid var(--border)',fontSize:'.88rem',fontWeight:700,
+                  <Link to="/registro" style={{display:'block',textAlign:'center',padding:'11px',borderRadius:8,
+                      border:'1px solid var(--border)',fontSize:'.88rem',fontWeight:700,
                       fontFamily:"'Syne',sans-serif",color:'var(--text-muted)',textDecoration:'none'}}>
                     {es ? 'Empezar gratis' : 'Start for free'}
                   </Link>
@@ -230,7 +238,9 @@ export default function Pricing() {
                             opacity:(loadingPlan&&!isLoading)?0.5:1}}>
                     {isLoading
                       ? (es?'Redirigiendo…':'Redirecting…')
-                      : (es?'Contratar →':'Get started →')}
+                      : prorrateo
+                        ? (es ? `Actualizar por ${prorrateo.precio}€ →` : `Upgrade for €${prorrateo.precio} →`)
+                        : (es ? 'Contratar →' : 'Get started →')}
                   </button>
                 )}
               </div>
@@ -239,18 +249,15 @@ export default function Pricing() {
         </div>
       )}
 
-      {/* CTA para no identificados — invitación a registrarse */}
+      {/* CTA para no identificados */}
       {!user && (
         <div style={{maxWidth:600,margin:'0 auto 60px',padding:'32px',borderRadius:16,
                      background:'var(--cream)',border:'1px solid var(--border)',textAlign:'center'}}>
-          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,color:'var(--navy)',
-                       fontSize:'1.1rem',marginBottom:8}}>
+          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,color:'var(--navy)',fontSize:'1.1rem',marginBottom:8}}>
             {es ? '¿Ya tienes cuenta?' : 'Already have an account?'}
           </div>
           <p style={{color:'var(--text-muted)',fontSize:'.88rem',marginBottom:16}}>
-            {es
-              ? 'Inicia sesión para ver los planes disponibles para tu empresa.'
-              : 'Log in to see the plans available for your company.'}
+            {es ? 'Inicia sesión para ver los planes disponibles para tu empresa.' : 'Log in to see the plans available for your company.'}
           </p>
           <Link to="/login" style={{display:'inline-block',padding:'10px 28px',borderRadius:8,
                                      background:'var(--navy)',color:'white',fontWeight:700,

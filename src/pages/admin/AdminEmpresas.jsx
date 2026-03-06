@@ -40,8 +40,17 @@ export default function AdminEmpresas() {
   }
 
   const cambiarPlan = async (id, plan) => {
-    await supabase.from('empresas').update({ plan, max_productos_override: null }).eq('id', id)
-    setEmpresas(p => p.map(e => e.id===id ? {...e, plan} : e))
+    const expiraAt = plan !== 'gratuito'
+      ? new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString()
+      : null
+    const updates = {
+      plan,
+      max_productos_override: null,
+      plan_status:   plan !== 'gratuito' ? 'active' : null,
+      plan_expira_at: expiraAt,
+    }
+    await supabase.from('empresas').update(updates).eq('id', id)
+    setEmpresas(p => p.map(e => e.id===id ? {...e, ...updates} : e))
   }
 
   const verificar = async (id) => {
