@@ -29,6 +29,12 @@ export function AppProvider({ children }) {
     setEmpresa(null)
     setModerador(false)
     await supabase.auth.signOut().catch(() => {})
+    // Limpiar todas las claves sb- de localStorage
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('sb-')) localStorage.removeItem(key)
+      }
+    } catch(_) {}
   }
 
   const refreshEmpresa = async () => {
