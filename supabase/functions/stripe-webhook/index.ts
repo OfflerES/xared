@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
         const empresaId = meta.empresaId
         const planLabel = meta.planLabel || 'basico'
         const status    = obj.status as string
-        const rawEnd = obj.current_period_end; console.log("current_period_end:", rawEnd, typeof rawEnd); const expiraAt = rawEnd ? new Date(Number(rawEnd) * 1000).toISOString() : null
+        const expiraAt = obj.current_period_end ? new Date(Number(obj.current_period_end) * 1000).toISOString() : null
 
         if (!empresaId) { console.error('Subscription sin empresaId:', obj.id); break }
 
