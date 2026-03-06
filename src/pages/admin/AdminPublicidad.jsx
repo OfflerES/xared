@@ -20,15 +20,28 @@ export default function AdminPublicidad() {
 
   const load = async () => {
     setLoading(true)
-    const q = supabase
+    let q = supabase
       .from('campanas')
-      .select('*, empresas(razon_social, email, verificada)')
+      .select('*')
       .order('created_at', { ascending: false })
 
-    if (filtroEstado !== 'todas') q.eq('estado', filtroEstado)
+    if (filtroEstado !== 'todas') q = q.eq('estado', filtroEstado)
 
-    const { data } = await q
-    setCampanas(data || [])
+    const { data: camps } = await q
+    if (!camps) { setCampanas([]); setLoading(false); return }
+
+    // Cargar datos de empresas por separado
+    const empresaIds = [...new Set(camps.map(c => c.empresa_id).filter(Boolean))]
+    let empresaMap = {}
+    if (empresaIds.length > 0) {
+      const { data: emps } = await supabase
+        .from('empresas')
+        .select('id, razon_social, email, verificada')
+        .in('id', empresaIds)
+      ;(emps || []).forEach(e => empresaMap[e.id] = e)
+    }
+
+    setCampanas(camps.map(c => ({ ...c, empresas: empresaMap[c.empresa_id] || null })))
     setLoading(false)
   }
 

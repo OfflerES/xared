@@ -19,6 +19,7 @@ import Admin from './pages/Admin'
 import Moderador from './pages/Moderador'
 import Mantenimiento from './pages/Mantenimiento'
 import { ADMIN_EMAIL } from './lib/supabase'
+import BannerPublicitario from './components/BannerPublicitario'
 
 // Detectar subdominio una sola vez al cargar
 const SUBDOMAIN = detectSubdomain()
@@ -66,6 +67,7 @@ export default function App() {
     return (
       <>
         <Nav />
+        <BannerPublicitario />
         <Routes>
           <Route path="/" element={<Directorio region={region} subPais={paisSlug} />} />
           <Route path="/registro"   element={<Register />} />
@@ -93,6 +95,7 @@ export default function App() {
   return (
     <>
       <Nav />
+      <BannerPublicitario />
       <Routes>
         <Route path="/"           element={<Home />} />
         <Route path="/registro"   element={<Register />} />
