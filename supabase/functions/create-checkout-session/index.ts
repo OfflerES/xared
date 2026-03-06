@@ -12,11 +12,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { priceId, empresaId, email, paqueteId, impresiones, zona } = await req.json()
+    const { priceId, empresaId, email, planLabel } = await req.json()
 
-    if (!priceId || !empresaId || !email || !impresiones || !zona) {
+    if (!priceId || !empresaId || !email || !planLabel) {
       return new Response(
-        JSON.stringify({ error: 'Faltan parámetros' }),
+        JSON.stringify({ error: 'Faltan parámetros: priceId, empresaId, email, planLabel' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -26,29 +26,22 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Verificar que la empresa existe y tiene banner aprobado
-    const { data: campana, error: campErr } = await supabase
-      .from('campanas')
-      .select('id, estado, banner_url')
-      .eq('empresa_id', empresaId)
-      .eq('estado', 'aprobada')
-      .maybeSingle()
+    // Verificar empresa
+    const { data: empresa, error: empErr } = await supabase
+      .from('empresas')
+      .select('id, stripe_customer_id, plan, stripe_subscription_id')
+      .eq('id', empresaId)
+      .single()
 
-    if (campErr || !campana) {
+    if (empErr || !empresa) {
       return new Response(
-        JSON.stringify({ error: 'No tienes un banner aprobado para contratar impresiones.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Empresa no encontrada.' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     // Obtener o crear customer en Stripe
-    const { data: empresa } = await supabase
-      .from('empresas')
-      .select('id, stripe_customer_id')
-      .eq('id', empresaId)
-      .single()
-
-    let customerId = empresa?.stripe_customer_id
+    let customerId = empresa.stripe_customer_id
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -61,20 +54,19 @@ Deno.serve(async (req) => {
         .eq('id', empresaId)
     }
 
-    // Crear sesión de Checkout (pago único)
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://xared.com'
+
+    // Crear sesión de Checkout para suscripción
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      mode: 'payment',
+      mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${Deno.env.get('SITE_URL')}/publicidad?checkout=success`,
-      cancel_url:  `${Deno.env.get('SITE_URL')}/publicidad?checkout=cancel`,
-      payment_intent_data: {
+      success_url: `${siteUrl}/dashboard?checkout=success&plan=${planLabel}`,
+      cancel_url:  `${siteUrl}/precios?checkout=cancel`,
+      subscription_data: {
         metadata: {
-          empresaId:   String(empresaId),
-          campanaId:   String(campana.id),
-          paqueteId,
-          impresiones: String(impresiones),
-          zona,
+          empresaId: String(empresaId),
+          planLabel,
         },
       },
       locale: 'es',
@@ -87,7 +79,7 @@ Deno.serve(async (req) => {
     )
 
   } catch (e) {
-    console.error('create-banner-checkout error:', e)
+    console.error('create-checkout-session error:', e)
     return new Response(
       JSON.stringify({ error: e.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

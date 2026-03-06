@@ -1,25 +1,56 @@
-import Stripe from 'https://esm.sh/stripe@14?target=deno'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
-  apiVersion: '2024-04-10',
-})
-const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
+// Verificación de firma Stripe sin SDK - usa Web Crypto API nativa de Deno
+async function verifyStripeSignature(body: string, signature: string, secret: string): Promise<boolean> {
+  try {
+    const parts = signature.split(',').reduce((acc: Record<string, string>, part) => {
+      const [key, val] = part.split('=')
+      acc[key] = val
+      return acc
+    }, {})
+
+    const timestamp = parts['t']
+    const v1 = parts['v1']
+    if (!timestamp || !v1) return false
+
+    const payload = `${timestamp}.${body}`
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(secret)
+    const messageData = encoder.encode(payload)
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    )
+    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
+    const expectedSig = Array.from(new Uint8Array(signatureBuffer))
+      .map(b => b.toString(16).padStart(2, '0')).join('')
+
+    return expectedSig === v1
+  } catch {
+    return false
+  }
+}
 
 Deno.serve(async (req) => {
   const body      = await req.text()
   const signature = req.headers.get('stripe-signature')
+  const secret    = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
 
   if (!signature) {
     return new Response('Missing stripe-signature header', { status: 400 })
   }
 
-  let event: Stripe.Event
+  const valid = await verifyStripeSignature(body, signature, secret)
+  if (!valid) {
+    console.error('Invalid stripe signature')
+    return new Response('Invalid signature', { status: 400 })
+  }
+
+  let event: { type: string; id: string; data: { object: Record<string, unknown> } }
   try {
-    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret)
-  } catch (e) {
-    console.error('Webhook signature verification failed:', e.message)
-    return new Response(`Webhook error: ${e.message}`, { status: 400 })
+    event = JSON.parse(body)
+  } catch {
+    return new Response('Invalid JSON', { status: 400 })
   }
 
   const supabase = createClient(
@@ -40,179 +71,119 @@ Deno.serve(async (req) => {
   console.log('Procesando evento:', event.type, event.id)
 
   try {
+    const obj = event.data.object as Record<string, unknown>
+
     switch (event.type) {
 
       case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
+        if (obj.mode !== 'payment') break
 
-        // Solo procesamos pagos únicos de banners (mode: payment)
-        // Los de suscripción (mode: subscription) los gestiona customer.subscription.created
-        if (session.mode !== 'payment') break
+        const paymentIntentId = obj.payment_intent as string
+        if (!paymentIntentId) break
 
-        // Recuperar metadata del PaymentIntent
-        const paymentIntentId = session.payment_intent as string
-        if (!paymentIntentId) {
-          console.error('checkout.session.completed sin payment_intent')
-          break
-        }
+        const piRes = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
+          headers: { 'Authorization': `Bearer ${Deno.env.get('STRIPE_SECRET_KEY')}` }
+        })
+        const pi = await piRes.json()
+        const meta = pi.metadata || {}
 
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
-        const meta = paymentIntent.metadata
-
-        if (!meta?.campanaId || !meta?.impresiones) {
+        if (!meta.campanaId || !meta.impresiones) {
           console.log('checkout.session.completed sin metadata de campaña — ignorado')
           break
         }
 
-        const campanaId  = parseInt(meta.campanaId)
+        const campanaId   = parseInt(meta.campanaId)
         const impresiones = parseInt(meta.impresiones)
         const zona        = meta.zona || 'espana'
 
-        // Obtener campaña actual
-        const { data: campana, error: campErr } = await supabase
-          .from('campanas')
-          .select('id, impresiones_total, target_zona, estado')
-          .eq('id', campanaId)
-          .single()
+        const { data: campana } = await supabase
+          .from('campanas').select('id, impresiones_total').eq('id', campanaId).single()
 
-        if (campErr || !campana) {
-          console.error('Campaña no encontrada:', campanaId)
-          break
-        }
+        if (!campana) { console.error('Campaña no encontrada:', campanaId); break }
 
-        const nuevasImpresiones = (campana.impresiones_total || 0) + impresiones
-
-        // Sumar impresiones y activar campaña
         await supabase.from('campanas').update({
-          impresiones_total: nuevasImpresiones,
-          target_zona:       zona,
-          activo:            true,
-          updated_at:        new Date().toISOString(),
+          impresiones_total: (campana.impresiones_total || 0) + impresiones,
+          target_zona: zona, activo: true, updated_at: new Date().toISOString(),
         }).eq('id', campanaId)
 
-        await supabase.from('audit_log').insert({
-          tabla:  'campanas',
-          accion: 'banner_impresiones_compradas',
-          datos:  {
-            campanaId,
-            impresiones,
-            nuevasImpresiones,
-            zona,
-            sessionId:       session.id,
-            paymentIntentId,
-          },
-          fecha: new Date().toISOString(),
-        })
-
-        console.log(`Campaña ${campanaId} → +${impresiones} imp (total: ${nuevasImpresiones}), zona: ${zona}`)
+        console.log(`Campaña ${campanaId} → +${impresiones} imp`)
         break
       }
 
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        const sub       = event.data.object as Stripe.Subscription
-        const empresaId = sub.metadata?.empresaId
-        const planLabel = sub.metadata?.planLabel || 'basico'
-        const status    = sub.status
-        const expiraAt  = new Date(sub.current_period_end * 1000).toISOString()
+        const meta      = (obj.metadata || {}) as Record<string, string>
+        const empresaId = meta.empresaId
+        const planLabel = meta.planLabel || 'basico'
+        const status    = obj.status as string
+        const rawEnd = obj.current_period_end; console.log("current_period_end:", rawEnd, typeof rawEnd); const expiraAt = rawEnd ? new Date(Number(rawEnd) * 1000).toISOString() : null
 
-        if (!empresaId) {
-          console.error('Subscription sin empresaId en metadata:', sub.id)
-          break
-        }
+        if (!empresaId) { console.error('Subscription sin empresaId:', obj.id); break }
 
         const planActivo = status === 'active' || status === 'trialing'
 
         await supabase.from('empresas').update({
           plan:                   planActivo ? planLabel : 'gratuito',
           plan_status:            status,
-          stripe_subscription_id: sub.id,
+          stripe_subscription_id: obj.id as string,
           plan_expira_at:         expiraAt,
         }).eq('id', empresaId)
-
-        await supabase.from('audit_log').insert({
-          tabla:  'empresas',
-          accion: `stripe_subscription_${event.type.split('.').pop()}`,
-          datos:  { empresaId, planLabel, status, expiraAt, subscriptionId: sub.id },
-          fecha:  new Date().toISOString(),
-        })
 
         console.log(`Empresa ${empresaId} → plan ${planActivo ? planLabel : 'gratuito'} (${status})`)
         break
       }
 
       case 'customer.subscription.deleted': {
-        const sub       = event.data.object as Stripe.Subscription
-        const empresaId = sub.metadata?.empresaId
-
-        if (!empresaId) {
-          console.error('Subscription deleted sin empresaId:', sub.id)
-          break
-        }
+        const meta      = (obj.metadata || {}) as Record<string, string>
+        const empresaId = meta.empresaId
+        if (!empresaId) break
 
         await supabase.from('empresas').update({
-          plan:                   'gratuito',
-          plan_status:            'canceled',
-          stripe_subscription_id: null,
-          plan_expira_at:         null,
+          plan: 'gratuito', plan_status: 'canceled',
+          stripe_subscription_id: null, plan_expira_at: null,
         }).eq('id', empresaId)
-
-        await supabase.from('audit_log').insert({
-          tabla:  'empresas',
-          accion: 'stripe_subscription_canceled',
-          datos:  { empresaId, subscriptionId: sub.id },
-          fecha:  new Date().toISOString(),
-        })
 
         console.log(`Empresa ${empresaId} → plan gratuito (cancelado)`)
         break
       }
 
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice
-        const subId   = invoice.subscription as string
+      case 'invoice.payment_succeeded': {
+        const subId = obj.subscription as string
         if (!subId) break
 
-        const { data: empresa } = await supabase
-          .from('empresas')
-          .select('id')
-          .eq('stripe_subscription_id', subId)
-          .single()
+        const parent     = obj.parent as Record<string, unknown> | null
+        const subDetails = parent?.subscription_details as Record<string, unknown> | null
+        const meta       = (subDetails?.metadata || {}) as Record<string, string>
+        const empresaId  = meta.empresaId
+        const planLabel  = meta.planLabel || 'basico'
 
-        if (empresa) {
-          await supabase.from('empresas')
-            .update({ plan_status: 'past_due' })
-            .eq('id', empresa.id)
+        if (!empresaId) { console.log('invoice.payment_succeeded sin empresaId, ignorado'); break }
 
-          await supabase.from('audit_log').insert({
-            tabla:  'empresas',
-            accion: 'stripe_payment_failed',
-            datos:  { empresaId: empresa.id, invoiceId: invoice.id, amount: invoice.amount_due },
-            fecha:  new Date().toISOString(),
-          })
+        const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subId}`, {
+          headers: { 'Authorization': `Bearer ${Deno.env.get('STRIPE_SECRET_KEY')}` }
+        })
+        const sub = await subRes.json()
+        const expiraAt = new Date(sub.current_period_end * 1000).toISOString()
 
-          console.log(`Pago fallido empresa ${empresa.id}, invoice ${invoice.id}`)
-        }
+        await supabase.from('empresas').update({
+          plan: planLabel, plan_status: 'active',
+          plan_expira_at: expiraAt, stripe_subscription_id: subId,
+        }).eq('id', empresaId)
+
+        console.log(`Empresa ${empresaId} → plan ${planLabel} activado (invoice paid)`)
         break
       }
 
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice
-        const subId   = invoice.subscription as string
+      case 'invoice.payment_failed': {
+        const subId = obj.subscription as string
         if (!subId) break
 
         const { data: empresa } = await supabase
-          .from('empresas')
-          .select('id, plan_status')
-          .eq('stripe_subscription_id', subId)
-          .single()
+          .from('empresas').select('id').eq('stripe_subscription_id', subId).single()
 
-        if (empresa && empresa.plan_status === 'past_due') {
-          await supabase.from('empresas')
-            .update({ plan_status: 'active' })
-            .eq('id', empresa.id)
-
-          console.log(`Pago recuperado empresa ${empresa.id}`)
+        if (empresa) {
+          await supabase.from('empresas').update({ plan_status: 'past_due' }).eq('id', empresa.id)
+          console.log(`Pago fallido empresa ${empresa.id}`)
         }
         break
       }
@@ -226,7 +197,6 @@ Deno.serve(async (req) => {
   }
 
   return new Response(JSON.stringify({ received: true }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    status: 200, headers: { 'Content-Type': 'application/json' },
   })
 })

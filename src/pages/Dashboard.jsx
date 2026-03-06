@@ -63,6 +63,18 @@ function UpsellBanner({ empresa, lang }) {
   const lbl = lang === 'en' ? planLabelsEn : planLabels
 
   const emojis    = { basico:'⭐', profesional:'🚀', maximo:'👑' }
+
+  const featuresEs = {
+    basico:      ['10 productos', '3 fotos/producto', 'Perfil destacado', 'Sin publicidad', 'Soporte email'],
+    profesional: ['20 productos', '5 fotos/producto', 'Badge verificado prioritario', 'Sin publicidad', 'Soporte prioritario'],
+    maximo:      ['50 productos', '10 fotos/producto', 'Posición privilegiada', 'Sin publicidad', 'Account manager dedicado'],
+  }
+  const featuresEn = {
+    basico:      ['10 products', '3 photos/product', 'Featured profile', 'Ad-free', 'Email support'],
+    profesional: ['20 products', '5 photos/product', 'Priority verified badge', 'Ad-free', 'Priority support'],
+    maximo:      ['50 products', '10 photos/product', 'Premium placement', 'Ad-free', 'Dedicated account manager'],
+  }
+  const features = (lang === 'en' ? featuresEn : featuresEs)[planSig] || []
   const gradients = {
     basico:      'linear-gradient(135deg,rgba(244,96,12,0.08),rgba(244,96,12,0.02))',
     profesional: 'linear-gradient(135deg,rgba(201,153,42,0.12),rgba(201,153,42,0.03))',
@@ -144,6 +156,14 @@ function UpsellBanner({ empresa, lang }) {
             </>
           )}
         </div>
+        {/* Ventajas del plan siguiente */}
+        <ul style={{listStyle:'none',padding:0,margin:'10px 0 0',display:'flex',flexWrap:'wrap',gap:'6px 16px'}}>
+          {features.map(f => (
+            <li key={f} style={{fontSize:'.78rem',color:'var(--text)',display:'flex',alignItems:'center',gap:5}}>
+              <span style={{color:'var(--success)'}}>✔</span>{f}
+            </li>
+          ))}
+        </ul>
       </div>
       <button
         onClick={handleUpgrade}
