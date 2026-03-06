@@ -10,6 +10,7 @@ function detectarZona() {
     if (path.startsWith('/es'))    return 'espana'
     if (path.startsWith('/eu'))    return 'europa'
     if (path.startsWith('/latam')) return 'latam'
+    if (path.startsWith('/e/') || path === '/') return 'espana'
     return 'global'
   }
   const { region } = SUBDOMAIN
@@ -19,6 +20,8 @@ function detectarZona() {
   return 'global'
 }
 
+const PLANES_PAGO = ['basico', 'profesional', 'maximo']
+
 export default function BannerPublicitario() {
   const [campana, setCampana] = useState(null)
   const [visible, setVisible] = useState(false)
@@ -27,6 +30,17 @@ export default function BannerPublicitario() {
 
   useEffect(() => {
     const cargar = async () => {
+      // Si estamos en el perfil de una empresa, verificar su plan
+      const path = window.location.pathname
+      if (path.startsWith('/e/')) {
+        const slug = path.split('/')[2]
+        if (slug) {
+          const { data: emp } = await supabase
+            .from('empresas').select('plan').eq('slug', slug).single()
+          if (emp && PLANES_PAGO.includes(emp.plan)) return // no mostrar
+        }
+      }
+
       const { data } = await supabase
         .rpc('get_banner_activo', { zona_param: zona })
       if (data?.length > 0) {
