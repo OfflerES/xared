@@ -286,11 +286,26 @@ export default function AdminConfig() {
           🔧 AdSense (fallback)
         </h3>
         <div className="form-group">
-          <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', textTransform:'none', letterSpacing:'normal', fontWeight:600 }}>
-            <input type="checkbox" checked={cfg.adsense_activo === 'true'} onChange={e => set('adsense_activo', e.target.checked ? 'true' : 'false')} style={{ width:16, height:16 }} />
-            Mostrar AdSense cuando no hay campaña activa
+          <label style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span>% AdSense vs anuncios contratados</span>
+            <strong style={{ fontFamily:"'Syne',sans-serif", fontSize:'1.1rem', color:'var(--navy)' }}>
+              {parseInt(cfg.adsense_pct ?? 90)}%
+            </strong>
           </label>
-          <p style={{ fontSize:'.75rem', color:'var(--text-muted)', marginTop:6 }}>Solo se muestra a usuarios del plan gratuito y cuando no hay campaña Xared activa.</p>
+          <input
+            type="range" min={0} max={100} step={5}
+            value={parseInt(cfg.adsense_pct ?? 90)}
+            onChange={e => set('adsense_pct', e.target.value)}
+            style={{ width:'100%', accentColor:'var(--orange)', marginTop:6 }}
+          />
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.72rem', color:'var(--text-muted)', marginTop:4 }}>
+            <span>0 — Solo anuncios contratados</span>
+            <span>100 — Solo AdSense</span>
+          </div>
+          <p style={{ fontSize:'.75rem', color:'var(--text-muted)', marginTop:8 }}>
+            Con un {parseInt(cfg.adsense_pct ?? 90)}% cada impresión tiene un {parseInt(cfg.adsense_pct ?? 90)}% de probabilidad de mostrar AdSense
+            y un {100 - parseInt(cfg.adsense_pct ?? 90)}% de mostrar un anuncio contratado en Xared.
+          </p>
         </div>
         <div className="form-group">
           <label>Código AdSense completo (script)</label>

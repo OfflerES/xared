@@ -95,16 +95,24 @@ Deno.serve(async (req) => {
         const campanaId   = parseInt(meta.campanaId)
         const impresiones = parseInt(meta.impresiones)
         const zona        = meta.zona || 'espana'
+        const categoria   = meta.categoria   || null
+        const urlDestino  = meta.urlDestino  || null
 
         const { data: campana } = await supabase
           .from('campanas').select('id, impresiones_total').eq('id', campanaId).single()
 
         if (!campana) { console.error('Campaña no encontrada:', campanaId); break }
 
-        await supabase.from('campanas').update({
+        const updatePayload: Record<string, unknown> = {
           impresiones_total: (campana.impresiones_total || 0) + impresiones,
-          target_zona: zona, activo: true, updated_at: new Date().toISOString(),
-        }).eq('id', campanaId)
+          target_zona: zona,
+          activo: true,
+          updated_at: new Date().toISOString(),
+        }
+        if (categoria)  updatePayload.target_categoria = parseInt(categoria)
+        if (urlDestino) updatePayload.url_destino      = urlDestino
+
+        await supabase.from('campanas').update(updatePayload).eq('id', campanaId)
 
         console.log(`Campaña ${campanaId} → +${impresiones} imp`)
         break

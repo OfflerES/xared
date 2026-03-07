@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { priceId, empresaId, email, paqueteId, impresiones, zona } = await req.json()
+    const { priceId, empresaId, email, paqueteId, impresiones, zona, categoria, urlDestino } = await req.json()
 
     if (!priceId || !empresaId || !email || !impresiones || !zona) {
       return new Response(
@@ -78,6 +78,8 @@ Deno.serve(async (req) => {
       'payment_intent_data[metadata][paqueteId]':    paqueteId || '',
       'payment_intent_data[metadata][impresiones]':  String(impresiones),
       'payment_intent_data[metadata][zona]':         zona,
+      'payment_intent_data[metadata][categoria]':     categoria || '',
+      'payment_intent_data[metadata][urlDestino]':    urlDestino || '',
       locale:                                        'es',
       allow_promotion_codes:                         'true',
     }, secretKey)

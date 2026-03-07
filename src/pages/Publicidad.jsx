@@ -22,6 +22,8 @@ export default function Publicidad() {
   const es = lang !== 'en'
 
   const [config,      setConfig]      = useState({})
+  const [categorias,  setCategorias]  = useState([])
+  const [categoria,   setCategoria]   = useState('')
   const [campana,     setCampana]     = useState(null)
   const [zona,        setZona]        = useState('espana')
   const [paquete,     setPaquete]     = useState('banner_1000')
@@ -43,6 +45,11 @@ export default function Publicidad() {
       setCheckoutMsg({ type: 'success', text: es ? '✅ ¡Pago recibido! Tus impresiones se acreditarán en breve.' : '✅ Payment received! Your impressions will be credited shortly.' })
     }
     if (status) window.history.replaceState({}, '', window.location.pathname)
+  }, [])
+
+  useEffect(() => {
+    supabase.from('categorias').select('id,nombre,icono').eq('visible',true).order('orden')
+      .then(({ data }) => setCategorias(data || []))
   }, [])
 
   useEffect(() => {
@@ -95,6 +102,8 @@ export default function Publicidad() {
           paqueteId: paquete,
           impresiones: paqueteSeleccionado.imps,
           zona,
+          categoria: categoria || null,
+          urlDestino: empresa.slug ? `https://xared.com/site/${empresa.slug}` : null,
         },
       })
       if (error) throw new Error(error.message)
@@ -246,6 +255,15 @@ export default function Publicidad() {
                 <select value={zona} onChange={e => setZona(e.target.value)}
                   style={{padding:'10px 16px',borderRadius:8,border:'1px solid rgba(255,255,255,0.2)',background:'rgba(255,255,255,0.1)',color:'white',fontSize:'.88rem',fontFamily:"'DM Sans',sans-serif",cursor:'pointer'}}>
                   {ZONAS.map(z => <option key={z.id} value={z.id} style={{color:'var(--navy)'}}>{z.label}</option>)}
+                </select>
+
+                {/* Selector categoría */}
+                <select value={categoria} onChange={e => setCategoria(e.target.value)}
+                  style={{padding:'10px 16px',borderRadius:8,border:'1px solid rgba(255,255,255,0.2)',background:'rgba(255,255,255,0.1)',color:'white',fontSize:'.88rem',fontFamily:"'DM Sans',sans-serif",cursor:'pointer'}}>
+                  <option value="" style={{color:'var(--navy)'}}>{es ? '📂 Todas las categorías' : '📂 All categories'}</option>
+                  {categorias.map(cat => (
+                    <option key={cat.id} value={cat.id} style={{color:'var(--navy)'}}>{cat.icono || ''} {cat.nombre}</option>
+                  ))}
                 </select>
 
                 {/* Selector paquete */}

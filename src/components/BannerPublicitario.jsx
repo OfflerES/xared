@@ -50,10 +50,31 @@ export default function BannerPublicitario() {
         }
       }
 
+      // Leer porcentaje AdSense desde config (default 90)
+      const { data: cfgData } = await supabase
+        .from('config').select('valor').eq('clave', 'adsense_pct').maybeSingle()
+      const adsensePct = parseInt(cfgData?.valor ?? 90)
+
+      // Decidir si mostrar AdSense o buscar campaña contratada
+      const roll = Math.floor(Math.random() * 100)
+      if (roll < adsensePct) {
+        // Mostrar AdSense
+        if (!cancelled) {
+          setCampana({ _tipo: 'adsense' })
+          setVisible(true)
+        }
+        return
+      }
+
+      // Buscar campaña contratada
       const zona = detectarZona(path)
       const { data } = await supabase.rpc('get_banner_activo', { zona_param: zona })
       if (!cancelled && data?.length > 0) {
         setCampana(data[0])
+        setVisible(true)
+      } else if (!cancelled && adsensePct < 100) {
+        // Fallback a AdSense si no hay campaña contratada disponible
+        setCampana({ _tipo: 'adsense' })
         setVisible(true)
       }
     }
