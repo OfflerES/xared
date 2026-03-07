@@ -6,18 +6,24 @@ import { t } from '../lib/i18n'
 import { PAISES_UE } from '../lib/utils'
 import CompanyCard from '../components/CompanyCard'
 
+// Redirige al subdominio correcto manteniendo path y query
+function goToSub(sub, path = '', search = '') {
+  const base = window.location.hostname.split('.').slice(-2).join('.')  // xared.com
+  window.location.href = `https://${sub}.${base}${path}${search}`
+}
+
 export default function Home() {
   const { lang } = useApp()
   const navigate = useNavigate()
-  const [categorias, setCategorias] = useState([])
-  const [spain,      setSpain]      = useState([])
-  const [ue,         setUe]         = useState([])
-  const [latam,      setLatam]      = useState([])
-  const [otros,      setOtros]      = useState([])
-  const [total,      setTotal]      = useState(null)
-  const [totalPaises, setTotalPaises] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [searchCat,  setSearchCat]  = useState('')
+  const [categorias,   setCategorias]   = useState([])
+  const [spain,        setSpain]        = useState([])
+  const [ue,           setUe]           = useState([])
+  const [latam,        setLatam]        = useState([])
+  const [otros,        setOtros]        = useState([])
+  const [total,        setTotal]        = useState(null)
+  const [totalPaises,  setTotalPaises]  = useState(null)
+  const [searchTerm,   setSearchTerm]   = useState('')
+  const [searchCat,    setSearchCat]    = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -46,11 +52,18 @@ export default function Home() {
   }, [])
 
   const handleSearch = () => {
-    const base = searchCat ? '/es/cat/' + searchCat : '/es'
-    navigate(base + (searchTerm.trim() ? '?q=' + encodeURIComponent(searchTerm.trim()) : ''))
+    const q = searchTerm.trim() ? '?q=' + encodeURIComponent(searchTerm.trim()) : ''
+    if (searchCat) {
+      // Con categoría → ir al subdominio spain por defecto, con filtro de cat
+      goToSub('spain', '/cat/' + searchCat, q)
+    } else if (searchTerm.trim()) {
+      // Sin categoría pero con texto → spain como directorio principal
+      goToSub('spain', '/', q)
+    }
+    // Sin nada → no hacer nada
   }
 
-  const DirectorySection = ({ title, badge, badgeClass, empresas, variant, dark, link }) => (
+  const DirectorySection = ({ title, badge, badgeClass, empresas, variant, dark, onVerTodas }) => (
     <div className={dark ? 'featured-dark' : ''}>
       <div style={{maxWidth:1280,margin:'0 auto',padding: dark ? '0 24px' : undefined}}>
         <div className={dark ? '' : 'section-wrap'} style={dark ? {padding:'56px 0'} : {}}>
@@ -58,7 +71,7 @@ export default function Home() {
             <h2 className="section-title">
               {title} <span className={'section-badge ' + badgeClass}>{badge}</span>
             </h2>
-            <button className="section-link" onClick={() => navigate(link || '/')}>Ver todas</button>
+            <button className="section-link" onClick={onVerTodas}>Ver todas</button>
           </div>
           {empresas.length === 0
             ? <div style={{textAlign:'center',padding:32,color: dark ? 'rgba(255,255,255,0.4)' : 'var(--text-muted)',fontSize:'.85rem'}}>
@@ -84,17 +97,17 @@ export default function Home() {
             .replace('verified suppliers', '<em>verified suppliers</em>') }} />
           <p className="hero-sub" dangerouslySetInnerHTML={{ __html: t('hero_sub', lang) }} />
           <div className="hero-flags">
-            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => navigate('/es')}>{t('hero_flag_es', lang)}</span>
-            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => navigate('/eu')}>{t('hero_flag_eu', lang)}</span>
-            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => navigate('/latam')}>{t('hero_flag_latam', lang)}</span>
-            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => navigate('/global')}>{t('hero_flag_global', lang)}</span>
+            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => goToSub('spain')}>{t('hero_flag_es', lang)}</span>
+            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => goToSub('eu')}>{t('hero_flag_eu', lang)}</span>
+            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => goToSub('latam')}>{t('hero_flag_latam', lang)}</span>
+            <span className="hero-flag" style={{cursor:'pointer'}} onClick={() => navigate('/')}>{t('hero_flag_global', lang)}</span>
           </div>
           <div className="search-bar">
             <input type="text" placeholder={lang==='en'?'Search for a product or supplier...':'Busca un producto o proveedor...'}
               value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()} />
             <select value={searchCat} onChange={e => setSearchCat(e.target.value)}>
-              <option value="">{lang === 'en' ? 'All categories' : 'Todas las categorías'}</option>
+              <option value="">{lang === 'en' ? 'All categories' : 'Todas las categorias'}</option>
               {categorias.map(c => <option key={c.id} value={c.slug || c.id}>{(lang === 'en' && c.nombre_en) ? c.nombre_en : c.nombre}</option>)}
             </select>
             <button onClick={handleSearch}>{t('search_btn', lang)}</button>
@@ -113,7 +126,7 @@ export default function Home() {
         <div className="category-grid">
           {categorias.map(c => (
             <div key={c.id} className="cat-card" style={{cursor:'pointer'}}
-              onClick={() => navigate('/es/cat/' + (c.slug || c.id))}>
+              onClick={() => goToSub('spain', '/cat/' + (c.slug || c.id))}>
               <span className="cat-icon">{c.icono || '?'}</span>
               <div className="cat-name">{(lang === 'en' && c.nombre_en) ? c.nombre_en : c.nombre}</div>
               <div className="cat-count">{lang === 'en' ? 'View products' : 'Ver productos'}</div>
@@ -123,13 +136,13 @@ export default function Home() {
       </div>
 
       <div className="divider-line" />
-      <DirectorySection title="Empresas espanolas"      badge="Espana" badgeClass="badge-spain"  empresas={spain} variant="spain" dark link="/es" />
+      <DirectorySection title="Empresas espanolas"        badge="Espana" badgeClass="badge-spain"  empresas={spain} variant="spain" dark onVerTodas={() => goToSub('spain')} />
       <div className="divider-line" />
-      <DirectorySection title="Empresas europeas"       badge="UE"     badgeClass="badge-global" empresas={ue}    variant="ue"    link="/eu" />
+      <DirectorySection title="Empresas europeas"         badge="UE"     badgeClass="badge-global" empresas={ue}    variant="ue"        onVerTodas={() => goToSub('eu')} />
       <div className="divider-line" />
-      <DirectorySection title="Empresas latinoamericanas" badge="LATAM" badgeClass="badge-latam"  empresas={latam} variant="latam" dark link="/latam" />
+      <DirectorySection title="Empresas latinoamericanas" badge="LATAM"  badgeClass="badge-latam"  empresas={latam} variant="latam" dark onVerTodas={() => goToSub('latam')} />
       <div className="divider-line" />
-      <DirectorySection title="Empresas globales"       badge="Global" badgeClass="badge-global" empresas={otros} variant="global" link="/global" />
+      <DirectorySection title="Empresas globales"         badge="Global" badgeClass="badge-global" empresas={otros} variant="global"     onVerTodas={() => navigate('/')} />
     </>
   )
 }

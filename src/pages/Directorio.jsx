@@ -171,6 +171,8 @@ function Paginacion({ pagina, total, porPagina, setPagina, setPorPagina }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
+const goHome = () => { const b = window.location.hostname.split('.').slice(-2).join('.'); window.location.href = 'https://' + b }
+
 export default function Directorio({ region, subPais, showAll }) {
   const navigate = useNavigate()
   const { paisCode: paisCodeUrl, categoria } = useParams()
@@ -407,7 +409,7 @@ export default function Directorio({ region, subPais, showAll }) {
         <div style={{maxWidth:1280,margin:'0 auto',position:'relative'}}>
           {/* Breadcrumb */}
           <div style={{fontSize:'.78rem',color:'rgba(255,255,255,0.45)',marginBottom:16,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
-            <span onClick={() => navigate('/')} style={{cursor:'pointer',padding:'3px 8px',borderRadius:4,background:'rgba(255,255,255,0.07)'}}
+            <span onClick={goHome} style={{cursor:'pointer',padding:'3px 8px',borderRadius:4,background:'rgba(255,255,255,0.07)'}}
               onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,0.14)'}
               onMouseOut={e=>e.currentTarget.style.background='rgba(255,255,255,0.07)'}>
               {lang === 'en' ? 'Home' : 'Inicio'}

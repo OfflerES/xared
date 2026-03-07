@@ -37,6 +37,8 @@ function EmailOfuscado({ email, lang }) {
 }
 
 
+const goHome = () => { const b = window.location.hostname.split('.').slice(-2).join('.'); window.location.href = 'https://' + b }
+
 export default function EmpresaPublica({ bySlug }) {
   const { id, slug } = useParams()
   const navigate     = useNavigate()
@@ -101,7 +103,7 @@ export default function EmpresaPublica({ bySlug }) {
       {/* Breadcrumb */}
       <div style={{background:'var(--navy)',padding:'14px 24px',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
         <div style={{maxWidth:1100,margin:'0 auto',fontSize:'.78rem',color:'rgba(255,255,255,0.4)',display:'flex',alignItems:'center',gap:8}}>
-          <span onClick={() => navigate('/')} style={{cursor:'pointer'}} className="bread-link">{t('dir_breadcrumb_home', lang)}</span>
+          <span onClick={goHome} style={{cursor:'pointer'}} className="bread-link">{t('dir_breadcrumb_home', lang)}</span>
           <span>›</span>
           <span onClick={() => navigate('/')} style={{cursor:'pointer'}} className="bread-link">{empresa.sector || 'Directorio'}</span>
           <span>›</span>

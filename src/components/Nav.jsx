@@ -5,6 +5,8 @@ import { ADMIN_EMAIL } from '../lib/supabase'
 import { t } from '../lib/i18n'
 import XaredLogo from './XaredLogo'
 
+const goHome = () => { const b = window.location.hostname.split('.').slice(-2).join('.'); window.location.href = 'https://' + b }
+
 export default function Nav() {
   const { user, empresa, moderador, lang, setLang, logout } = useApp()
   const navigate    = useNavigate()
@@ -27,7 +29,7 @@ export default function Nav() {
   return (
     <nav>
       <div className="nav-inner">
-        <Link to="/" className="logo" onClick={() => setMenuOpen(false)}><XaredLogo /></Link>
+        <a href="#" className="logo" onClick={e => { e.preventDefault(); setMenuOpen(false); goHome() }}><XaredLogo /></a>
 
         {/* Botón hamburguesa — solo móvil */}
         <button className="nav-hamburger" onClick={() => setMenuOpen(o => !o)} aria-label="Menú">
@@ -73,7 +75,7 @@ export default function Nav() {
                   <div style={{padding:'8px 14px',borderBottom:'1px solid var(--cream-dark)',fontSize:'.72rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>
                     {empresa?.razon_social || user.email}
                   </div>
-                  <button onClick={() => handleNav(empresa?.slug ? '/site/' + empresa.slug : '/dashboard')}
+                  <button onClick={() => handleNav(empresa?.slug ? '/e/' + empresa.slug : '/dashboard')}
                     style={{width:'100%',textAlign:'left',padding:'11px 16px',border:'none',background:'none',cursor:'pointer',fontSize:'.88rem',color:'var(--navy)',display:'flex',alignItems:'center',gap:10,fontFamily:"'DM Sans',sans-serif",fontWeight:500}}
                     onMouseOver={e=>e.currentTarget.style.background='var(--cream)'}
                     onMouseOut={e=>e.currentTarget.style.background='none'}>

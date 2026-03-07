@@ -161,8 +161,10 @@ export default function App() {
 function RedirectToSubdomain({ sub }) {
   useEffect(() => {
     const { hostname, pathname, search } = window.location
-    const baseDomain = hostname.split('.').slice(-2).join('.')  // xared.com
-    window.location.href = `https://${sub}.${baseDomain}${pathname}${search}`
+    const baseDomain = hostname.split('.').slice(-2).join('.')
+    // Eliminar el prefijo de región (/es, /eu, /latam, /global) del path
+    const cleanPath = pathname.replace(/^\/(es|eu|latam|global)(\/|$)/, '/') || '/'
+    window.location.href = `https://${sub}.${baseDomain}${cleanPath}${search}`
   }, [sub])
   return null
 }
