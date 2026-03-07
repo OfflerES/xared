@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /moderador
+Sitemap: https://eu.xared.com/sitemap.xml
