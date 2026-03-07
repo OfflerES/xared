@@ -1,3 +1,20 @@
+// ── Sufijos legales a eliminar del slug ───────────────────────────────────────
+const SUFIJOS_LEGALES = [
+  // España
+  'sl','sa','slu','sau','sll','scoop','sc','cb','scp','snc','scom',
+  // Internacional
+  'gmbh','ag','kg','ohg','gbr',         // Alemania/Austria
+  'ltd','llc','inc','corp','co',         // Anglosajón
+  'sas','sarl','snc','eurl',             // Francia
+  'srl','spa','snc','sas',              // Italia/LATAM
+  'bv','nv',                             // Países Bajos/Bélgica
+  'ab',                                  // Suecia
+  'oy',                                  // Finlandia
+  'as',                                  // Noruega/Dinamarca
+  'lda','lda',                           // Portugal
+  'cia','ltda',                          // LATAM
+]
+
 export function generarSlug(texto) {
   return texto
     .toLowerCase()
@@ -7,10 +24,33 @@ export function generarSlug(texto) {
     .slice(0, 80)
 }
 
-export function generarSlugEmpresa(razonSocial, nif) {
-  const base = generarSlug(razonSocial)
-  const suf  = nif ? '-' + nif.slice(-4).toLowerCase() : ''
-  return base + suf
+export function generarSlugEmpresa(razonSocial) {
+  // 1. Normalizar y partir en tokens
+  let tokens = razonSocial
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // quitar tildes
+    .replace(/[^a-z0-9\s]/g, ' ')                       // quitar puntuación
+    .trim()
+    .split(/\s+/)
+
+  // 2. Eliminar sufijos legales del final (pueden ser 1 o 2 tokens finales)
+  while (tokens.length > 1 && SUFIJOS_LEGALES.includes(tokens[tokens.length - 1])) {
+    tokens.pop()
+  }
+
+  // 3. Construir slug limpio
+  return tokens.join('-').replace(/-+/g, '-').slice(0, 60) || 'empresa'
+}
+
+export function slugPersonalizado(slug) {
+  // Limpia y valida un slug propuesto por el usuario
+  return slug
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60)
 }
 
 /**

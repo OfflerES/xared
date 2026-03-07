@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, ADMIN_EMAIL } from '../lib/supabase'
 import { useApp } from '../context/AppContext'
-import { generarSlugEmpresa, PAISES_GRUPOS, PROVINCIAS_ES, SECTORES, getOrigen, sanitize } from '../lib/utils'
+import { generarSlugEmpresa, slugPersonalizado, PAISES_GRUPOS, PROVINCIAS_ES, SECTORES, getOrigen, sanitize } from '../lib/utils'
 import { t } from '../lib/i18n'
+
+const SUFIJOS_LEGALES = ['sl','sa','slu','sau','sll','scoop','sc','cb','scp','snc','scom','gmbh','ag','kg','ohg','gbr','ltd','llc','inc','corp','co','sas','sarl','eurl','srl','spa','bv','nv','ab','oy','as','lda','cia','ltda']
 
 const ORIGIN_MSG = {
   es: {
@@ -43,7 +45,47 @@ export default function Register() {
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Slug
+  const [slugBase,       setSlugBase]       = useState('')   // generado desde nombre
+  const [slugCustom,     setSlugCustom]     = useState('')   // propuesto por usuario
+  const [slugEditando,   setSlugEditando]   = useState(false)
+  const [slugStatus,     setSlugStatus]     = useState(null) // null | 'checking' | 'ok' | 'taken' | 'short'
+  const slugTimer = useRef(null)
+
   const set = (k, v) => setForm(p => ({...p, [k]: v}))
+
+  // Generar slug base cuando cambia el nombre
+  useEffect(() => {
+  console.log('razon cambió:', form.razon)  // añade esto
+  if (!form.razon.trim()) { setSlugBase(''); return }
+    if (!form.razon.trim()) { setSlugBase(''); return }
+    const s = generarSlugEmpresa(form.razon)
+    setSlugBase(s)
+    if (!slugEditando) setSlugCustom(s)
+  }, [form.razon])
+
+  // Verificar disponibilidad del slug con debounce
+  useEffect(() => {
+    if (!slugCustom) { setSlugStatus(null); return }
+    if (slugCustom.length < 5) { setSlugStatus('short'); return }
+    setSlugStatus('checking')
+    clearTimeout(slugTimer.current)
+    slugTimer.current = setTimeout(async () => {
+      const { data } = await supabase.from('empresas').select('id').eq('slug', slugCustom).maybeSingle()
+      setSlugStatus(data ? 'taken' : 'ok')
+    }, 500)
+    return () => clearTimeout(slugTimer.current)
+  }, [slugCustom])
+
+  const handleSlugChange = (val) => {
+    setSlugEditando(true)
+    setSlugCustom(slugPersonalizado(val))
+  }
+
+  const resetSlug = () => {
+    setSlugEditando(false)
+    setSlugCustom(slugBase)
+  }
 
   const setOrig = (o) => {
     setOrigin(o)
@@ -73,13 +115,17 @@ export default function Register() {
       : '✅ ' + data.descuento_pct + '% ' + (lang==='en'?'discount applied':'de descuento aplicado'))
   }
 
+  const slugFinal = slugCustom || slugBase
+
   const submit = async () => {
     setOk(''); setErr('')
-    const reqFields = lang==='en' ? 'Fill in all required fields.' : 'Rellena todos los campos obligatorios.'
-    if (!form.nif || !form.razon || !form.email || !form.pass) { setErr('⚠️ ' + reqFields); return }
+    if (!form.nif || !form.razon || !form.email || !form.pass) { setErr('⚠️ ' + (lang==='en'?'Fill in all required fields.':'Rellena todos los campos obligatorios.')); return }
     if (form.pass.length < 8)    { setErr('⚠️ ' + (lang==='en'?'Password must be at least 8 characters.':'La contrasena debe tener al menos 8 caracteres.')); return }
     if (form.pass !== form.pass2) { setErr('⚠️ ' + (lang==='en'?'Passwords do not match.':'Las contrasenas no coinciden.')); return }
     if (origin === 'spain' && !/^[A-Z0-9]{8,10}$/.test(form.nif)) { setErr('⚠️ ' + (lang==='en'?'Invalid NIF/CIF format. Example: B12345678':'Formato de NIF/CIF incorrecto. Ejemplo: B12345678')); return }
+    if (slugStatus === 'taken') { setErr('⚠️ ' + (lang==='en'?'That URL is already taken. Choose another.':'Esa URL ya esta en uso. Elige otra.')); return }
+    if (slugStatus === 'short') { setErr('⚠️ ' + (lang==='en'?'URL must be at least 5 characters.':'La URL debe tener al menos 5 caracteres.')); return }
+
     setLoading(true)
     try {
       const { data: auth, error: authErr } = await supabase.auth.signUp({
@@ -92,12 +138,10 @@ export default function Register() {
         return
       }
 
-      // ── Verificación automática de dominio ───────────────────────────────
-      // Cupón AS ya garantiza verificación → saltamos el check de dominio
       const cuponAS = cuponValido?.codigo?.startsWith('AS')
-      let verificada        = cuponAS
+      let verificada         = cuponAS
       let verificacionMetodo = cuponAS ? 'auto_cupon_as' : null
-      let estadoEmpresa     = 'activa'  // siempre activa (puede editar perfil)
+      let estadoEmpresa      = 'activa'
 
       if (!cuponAS) {
         try {
@@ -108,24 +152,32 @@ export default function Register() {
             verificada         = true
             verificacionMetodo = vData.motivo || 'auto_dominio'
           }
-        } catch { /* si falla la función, queda pendiente de verificación manual */ }
+        } catch { /* queda pendiente de verificación manual */ }
+      }
+
+      // Slug final — verificar disponibilidad una vez más antes de insertar
+      let slugDefinitivo = slugFinal
+      const { data: slugExiste } = await supabase.from('empresas').select('id').eq('slug', slugDefinitivo).maybeSingle()
+      if (slugExiste) {
+        // Añadir sufijo numérico si hay colisión de última hora
+        slugDefinitivo = slugDefinitivo + '-' + Math.random().toString(36).slice(2,6)
       }
 
       const { data: empData, error: empErr } = await supabase.from('empresas').insert({
-        user_id:               auth.user.id,
-        nif:                   sanitize(form.nif),
-        razon_social:          sanitize(form.razon),
-        email:                 sanitize(form.email),
-        sector:                sanitize(form.sector)    || null,
-        provincia:             sanitize(form.provincia) || null,
-        pais:                  form.pais,
-        origen:                getOrigen(form.pais),
-        plan:                  'gratuito',
-        estado:                estadoEmpresa,
-        zona:                  'nacional',
-        slug:                  generarSlugEmpresa(form.razon, form.nif),
+        user_id:             auth.user.id,
+        nif:                 sanitize(form.nif),
+        razon_social:        sanitize(form.razon),
+        email:               sanitize(form.email),
+        sector:              sanitize(form.sector)    || null,
+        provincia:           sanitize(form.provincia) || null,
+        pais:                form.pais,
+        origen:              getOrigen(form.pais),
+        plan:                'gratuito',
+        estado:              estadoEmpresa,
+        zona:                'nacional',
+        slug:                slugDefinitivo,
         verificada,
-        verificacion_metodo:   verificacionMetodo,
+        verificacion_metodo: verificacionMetodo,
       }).select().single()
 
       if (empErr) {
@@ -147,7 +199,6 @@ export default function Register() {
         await supabase.from('cupones_usos').insert({ cupon_id: cuponValido.id, empresa_id: empData.id })
       }
 
-      // Mensaje según resultado de verificación
       if (verificada) {
         setOk('✅ ' + (lang==='en'
           ? 'Account created and verified! Check your email to confirm it.'
@@ -155,7 +206,7 @@ export default function Register() {
       } else {
         setOk('✅ ' + (lang==='en'
           ? 'Account created. Check your email and complete your profile. Your listing will be visible once we verify your company (usually within 24–48h).'
-          : 'Cuenta creada. Revisa tu email y completa tu perfil. Tu empresa será visible en el directorio una vez que la verifiquemos (normalmente en 24–48h).'))
+          : 'Cuenta creada. Revisa tu email y completa tu perfil. Tu empresa sera visible en el directorio una vez que la verifiquemos (normalmente en 24–48h).'))
       }
     } catch(e) {
       setErr('❌ ' + (e.message || (lang==='en'?'Error creating account.':'Error al crear la cuenta.')))
@@ -173,6 +224,14 @@ export default function Register() {
 
   const nifLabel = getNifLabel(lang)
   const nifPh    = getNifPh()
+
+  const slugStatusColor = { ok:'var(--success)', taken:'var(--danger)', short:'var(--danger)', checking:'var(--text-muted)' }
+  const slugStatusMsg   = {
+    ok:       lang==='en' ? '✔ Available' : '✔ Disponible',
+    taken:    lang==='en' ? '✕ Already taken' : '✕ Ya esta en uso',
+    short:    lang==='en' ? 'Minimum 5 characters' : 'Minimo 5 caracteres',
+    checking: lang==='en' ? 'Checking...' : 'Comprobando...',
+  }
 
   return (
     <div className="auth-layout">
@@ -215,6 +274,42 @@ export default function Register() {
             <input className="form-control" value={form.razon} onChange={e=>set('razon',e.target.value)} placeholder="Empresa S.L." />
           </div>
         </div>
+
+        {/* Slug personalizado */}
+        {slugBase && (
+          <div className="form-group">
+            <label style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span>{lang==='en' ? 'Your URL in Xared' : 'Tu URL en Xared'}</span>
+              {slugEditando && (
+                <button onClick={resetSlug} style={{fontSize:'.72rem',color:'var(--text-muted)',background:'none',border:'none',cursor:'pointer',padding:0}}>
+                  {lang==='en' ? 'Reset to default' : 'Restaurar automatico'}
+                </button>
+              )}
+            </label>
+            <div style={{display:'flex',alignItems:'center',background:'var(--cream)',border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}}>
+              <span style={{padding:'10px 12px',fontSize:'.8rem',color:'var(--text-muted)',whiteSpace:'nowrap',borderRight:'1px solid var(--border)'}}>
+                xared.com/site/
+              </span>
+              <input
+                className="form-control"
+                value={slugCustom}
+                onChange={e => handleSlugChange(e.target.value)}
+                placeholder={slugBase}
+                style={{border:'none',borderRadius:0,background:'transparent',flex:1}}
+              />
+            </div>
+            {slugStatus && (
+              <div className="form-hint" style={{color: slugStatusColor[slugStatus], marginTop:4}}>
+                {slugStatusMsg[slugStatus]}
+              </div>
+            )}
+            <div className="form-hint" style={{marginTop:4}}>
+              {lang==='en'
+                ? 'Minimum 5 characters. Only letters, numbers and hyphens. Cannot be changed later.'
+                : 'Minimo 5 caracteres. Solo letras, numeros y guiones. No se podra cambiar despues.'}
+            </div>
+          </div>
+        )}
 
         <div className="form-row">
           <div className="form-group">
@@ -293,7 +388,7 @@ export default function Register() {
           )}
         </div>
 
-        <button className="submit-btn" onClick={submit} disabled={loading}>
+        <button className="submit-btn" onClick={submit} disabled={loading || slugStatus === 'taken' || slugStatus === 'short'}>
           {loading ? <><span className="spinner"/>{t('reg_loading', lang)}</> : t('reg_btn', lang)+' →'}
         </button>
         <div className="auth-switch">

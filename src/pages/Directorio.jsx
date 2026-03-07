@@ -92,7 +92,7 @@ const getConfig = (lang) => {
     spain:  { label: es ? 'España'         : 'Spain',           color:'var(--spain)', basePath:'/es' },
     ue:     { label: es ? 'Unión Europea'  : 'European Union',  color:'#2563EB',      basePath:'/eu' },
     latam:  { label: es ? 'Latinoamérica' : 'Latin America',   color:'#059669',      basePath:'/latam' },
-    global: { label:'Global',                                    color:'var(--navy)',  basePath:'/global' },
+    
   }
 }
 
@@ -102,7 +102,7 @@ const getNAV_TABS = (lang) => {
     { id:'spain',  label: es ? 'España'         : 'Spain' },
     { id:'ue',     label: es ? 'Unión Europea'  : 'European Union' },
     { id:'latam',  label: es ? 'Latinoamérica'  : 'Latin America' },
-    { id:'global', label: 'Global' },
+    
   ]
 }
 
@@ -521,19 +521,19 @@ export default function Directorio({ region, subPais, showAll }) {
               {!esCat && region === 'spain' && (
                 <p style={{fontFamily:"'Syne',sans-serif",fontWeight:500,fontStyle:'italic',
                             color:'rgba(255,255,255,0.38)',fontSize:'clamp(.82rem,1.7vw,.92rem)',marginBottom:6}}>
-                  {lang==='en' ? 'Directorio de empresas de España' : 'Spain business directory'}
+                  {lang==='en' ? "Spain's leading B2B supplier directory" : 'El directorio B2B de referencia en España'}
                 </p>
               )}
               {!esCat && region === 'latam' && (
                 <p style={{fontFamily:"'Syne',sans-serif",fontWeight:500,fontStyle:'italic',
                             color:'rgba(255,255,255,0.38)',fontSize:'clamp(.82rem,1.7vw,.92rem)',marginBottom:6}}>
-                  {lang==='en' ? 'Directorio de empresas de Latinoamérica' : 'Latin America business directory'}
+                  {lang==='en' ? 'The largest B2B directory in Latin America' : 'El mayor directorio B2B de Latinoamérica'}
                 </p>
               )}
               {!esCat && region === 'ue' && (
                 <p style={{fontFamily:"'Syne',sans-serif",fontWeight:500,fontStyle:'italic',
                             color:'rgba(255,255,255,0.38)',fontSize:'clamp(.82rem,1.7vw,.92rem)',marginBottom:6}}>
-                  {lang==='en' ? 'Directorio de empresas · Unión Europea' : 'European Union business directory'}
+                  {lang==='en' ? "Europe's leading B2B directory to share product catalogues" : 'El directorio B2B líder en Europa para compartir catálogos'}
                 </p>
               )}
               <p style={{color:'rgba(255,255,255,0.45)',fontSize:'.85rem',marginBottom:24}}>
