@@ -1,16 +1,17 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
+import { supabase } from '../lib/supabase'
 import { ADMIN_EMAIL } from '../lib/supabase'
 import { t } from '../lib/i18n'
 import XaredLogo from './XaredLogo'
 
-const goHome = () => { const b = window.location.hostname.split('.').slice(-2).join('.'); window.location.href = 'https://' + b }
-
 export default function Nav() {
   const { user, empresa, moderador, lang, setLang, logout } = useApp()
+  const isAdmin = user?.email === ADMIN_EMAIL
+  const [pendientes, setPendientes] = useState(0)
+
   const navigate    = useNavigate()
-  const isAdmin     = user?.email === ADMIN_EMAIL
   const [open, setOpen]       = useState(false)  // dropdown usuario
   const [menuOpen, setMenuOpen] = useState(false) // menú móvil
   const dropRef = useRef(null)
@@ -24,12 +25,19 @@ export default function Nav() {
 
   // Cerrar menú móvil al cambiar ruta
   const handleNav = (path) => { setMenuOpen(false); setOpen(false); navigate(path) }
+  useEffect(() => {
+    if (!isAdmin) return
+    supabase.from('contactos_admin').select('*', { count: 'exact', head: true })
+      .eq('estado', 'pendiente')
+      .then(({ count }) => setPendientes(count || 0))
+  }, [isAdmin])
+
   const handleLogout = () => { setMenuOpen(false); setOpen(false); logout(); navigate('/') }
 
   return (
     <nav>
       <div className="nav-inner">
-        <a href="#" className="logo" onClick={e => { e.preventDefault(); setMenuOpen(false); goHome() }}><XaredLogo /></a>
+        <Link to="/" className="logo" onClick={() => setMenuOpen(false)}><XaredLogo /></Link>
 
         {/* Botón hamburguesa — solo móvil */}
         <button className="nav-hamburger" onClick={() => setMenuOpen(o => !o)} aria-label="Menú">
@@ -52,7 +60,10 @@ export default function Nav() {
           ) : isAdmin ? (
             <li>
               <div className="nav-user">
-                <Link to="/admin" className="nav-btn" style={{color:'rgba(255,140,0,0.9)'}} onClick={() => setMenuOpen(false)}>⚙ Admin</Link>
+                <Link to="/admin" className="nav-btn" style={{color:'rgba(255,140,0,0.9)',position:'relative',display:'inline-flex',alignItems:'center',gap:4}} onClick={() => setMenuOpen(false)}>
+                ⚙ Admin
+                {pendientes > 0 && <span style={{background:'#dc2626',color:'white',borderRadius:'50%',width:16,height:16,fontSize:'.6rem',fontWeight:800,display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{pendientes > 9 ? '9+' : pendientes}</span>}
+              </Link>
                 <button className="nav-logout" onClick={handleLogout}>{t('nav_logout', lang)}</button>
               </div>
             </li>

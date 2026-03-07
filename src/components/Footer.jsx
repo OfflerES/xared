@@ -28,7 +28,7 @@ export default function Footer() {
             <ul>
               <li><Link to="/precios">{es ? 'Planes y precios' : 'Plans & pricing'}</Link></li>
               <li><Link to="/publicidad">{es ? 'Publicidad' : 'Advertising'}</Link></li>
-              <li><a href="mailto:hola@xared.com">{es ? 'Contacto' : 'Contact'}</a></li>
+              <li><Link to="/contacto">{es ? 'Contacto' : 'Contact'}</Link></li>
             </ul>
           </div>
           <div className="footer-col">

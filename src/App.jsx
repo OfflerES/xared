@@ -16,6 +16,7 @@ import EmpresaPublica from './pages/EmpresaPublica'
 import ProductoPublico from './pages/ProductoPublico'
 import Directorio from './pages/Directorio'
 import Admin from './pages/Admin'
+import Contacto from './pages/Contacto'
 import Moderador from './pages/Moderador'
 import Mantenimiento from './pages/Mantenimiento'
 import { ADMIN_EMAIL } from './lib/supabase'
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/login"      element={<Login />} />
           <Route path="/recuperar"  element={<Recover />} />
           <Route path="/precios"    element={<Pricing />} />
+          <Route path="/contacto"   element={<Contacto />} />
           <Route path="/publicidad" element={<Publicidad />} />
           <Route path="/dashboard"
             element={user && user.email !== ADMIN_EMAIL
