@@ -6,7 +6,7 @@ import { t } from '../lib/i18n'
 import XaredLogo from './XaredLogo'
 
 export default function Nav() {
-  const { user, empresa, moderador, lang, setLang, logout } = useApp()
+  const { user, empresa, empresaReady, moderador, lang, setLang, logout } = useApp()
   const navigate    = useNavigate()
   const isAdmin     = user?.email === ADMIN_EMAIL
   const [open, setOpen]       = useState(false)  // dropdown usuario
@@ -63,7 +63,7 @@ export default function Nav() {
                 onMouseOut={e=>e.currentTarget.style.background='rgba(255,255,255,0.08)'}
               >
                 <span style={{maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                  {empresa?.razon_social || user.email}
+                  {!empresaReady ? '…' : (empresa?.razon_social || user.email)}
                 </span>
                 <span style={{fontSize:'.65rem',opacity:.7,transition:'transform .2s',transform:open?'rotate(180deg)':'none'}}>▼</span>
               </button>
@@ -71,7 +71,7 @@ export default function Nav() {
               {open && (
                 <div style={{position:'absolute',top:'calc(100% + 8px)',right:0,background:'white',border:'1px solid var(--border)',borderRadius:10,boxShadow:'0 8px 32px rgba(0,0,0,0.15)',minWidth:190,zIndex:200,overflow:'hidden'}}>
                   <div style={{padding:'8px 14px',borderBottom:'1px solid var(--cream-dark)',fontSize:'.72rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>
-                    {empresa?.razon_social || user.email}
+                    {!empresaReady ? '…' : (empresa?.razon_social || user.email)}
                   </div>
                   <button onClick={() => handleNav(empresa?.slug ? '/e/' + empresa.slug : '/dashboard')}
                     style={{width:'100%',textAlign:'left',padding:'11px 16px',border:'none',background:'none',cursor:'pointer',fontSize:'.88rem',color:'var(--navy)',display:'flex',alignItems:'center',gap:10,fontFamily:"'DM Sans',sans-serif",fontWeight:500}}

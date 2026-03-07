@@ -10,18 +10,20 @@ export function AppProvider({ children }) {
   const [moderador,  setModerador]  = useState(false)
   const [lang,       setLangState]  = useState(() => localStorage.getItem('xared_lang') || 'es')
   const [loading,    setLoading]    = useState(false) // false por defecto — no bloquear rutas públicas
+  const [empresaReady, setEmpresaReady] = useState(false) // true cuando empresa ha cargado (o no existe)
 
   const setLang = (l) => { setLangState(l); localStorage.setItem('xared_lang', l) }
 
   const loadSession = async (u) => {
     setUser(u)
-    if (!u || u.email === ADMIN_EMAIL) { setEmpresa(null); return }
+    if (!u || u.email === ADMIN_EMAIL) { setEmpresa(null); setEmpresaReady(true); return }
     const [{ data: emp }, { data: mod }] = await Promise.all([
       supabase.from('empresas').select('*').eq('user_id', u.id).single(),
       supabase.from('moderadores').select('id,activo').eq('user_id', u.id).eq('activo', true).maybeSingle(),
     ])
     setEmpresa(emp || null)
     setModerador(!!mod)
+    setEmpresaReady(true)
   }
 
   const logout = async () => {
@@ -65,7 +67,7 @@ export function AppProvider({ children }) {
   }, [])
 
   return (
-    <AppContext.Provider value={{ user, empresa, setEmpresa, moderador, lang, setLang, loading, loadSession, logout, refreshEmpresa }}>
+    <AppContext.Provider value={{ user, empresa, setEmpresa, moderador, lang, setLang, loading, empresaReady, loadSession, logout, refreshEmpresa }}>
       {children}
     </AppContext.Provider>
   )
