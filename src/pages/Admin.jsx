@@ -7,6 +7,7 @@ import AdminConfig from './admin/AdminConfig'
 import AdminAudit from './admin/AdminAudit'
 import AdminModeradores from './admin/AdminModeradores'
 import AdminEmail from './admin/AdminEmail'
+import AdminDenuncias from './admin/AdminDenuncias'
 
 const TABS = [
   { id:'empresas',    label:'Empresas' },
@@ -16,6 +17,7 @@ const TABS = [
   { id:'email',       label:'📧 Emails' },
   { id:'moderadores', label:'Moderadores' },
   { id:'audit',       label:'Actividad' },
+  { id:'denuncias',   label:'⚑ Denuncias' },
   { id:'config',      label:'Config' },
 ]
 
@@ -43,6 +45,7 @@ export default function Admin() {
       {tab === 'moderadores' && <AdminModeradores />}
       {tab === 'audit'       && <AdminAudit />}
       {tab === 'config'      && <AdminConfig />}
+      {tab === 'denuncias'   && <AdminDenuncias />}
     </div>
   )
 }

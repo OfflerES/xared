@@ -14,14 +14,15 @@ export default function ProductoPublico({ bySlug }) {
   const [fotoMain,setFotoMain]= useState('')
   const [loading, setLoading] = useState(true)
   const [rfqOpen, setRfqOpen] = useState(false)
+  const [denunciaOpen, setDenunciaOpen] = useState(false)
 
   const emp = prod?.empresas
 
-  // ── Canónica: siempre xared.com/site/:empSlug/:prodSlug ─────────────────────
+  // ── Canónica: siempre xared.com/e/:empSlug/:prodSlug ─────────────────────
   // null mientras carga = no inyecta nada todavía
   useCanonical(
     emp?.slug && prod?.slug
-      ? '/site/' + emp.slug + '/' + prod.slug
+      ? '/e/' + emp.slug + '/' + prod.slug
       : null
   )
 
@@ -71,7 +72,7 @@ export default function ProductoPublico({ bySlug }) {
         <div style={{maxWidth:1100,margin:'0 auto',fontSize:'.78rem',color:'rgba(255,255,255,0.4)',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
           <span onClick={() => navigate('/')} style={{cursor:'pointer'}}>{t('dir_breadcrumb_home', lang)}</span><span>›</span>
           <span>{cat?.nombre || t('prod_category', lang)}</span><span>›</span>
-          <span onClick={() => navigate(emp?.slug ? '/site/'+emp.slug : '/empresa/'+emp?.id)} style={{cursor:'pointer'}}>{emp?.razon_social||'Empresa'}</span><span>›</span>
+          <span onClick={() => navigate(emp?.slug ? '/e/'+emp.slug : '/empresa/'+emp?.id)} style={{cursor:'pointer'}}>{emp?.razon_social||'Empresa'}</span><span>›</span>
           <span style={{color:'rgba(255,255,255,0.7)'}}>{prod.nombre}</span>
         </div>
       </div>
@@ -120,7 +121,7 @@ export default function ProductoPublico({ bySlug }) {
               <button onClick={() => setRfqOpen(true)} style={{width:'100%',background:'var(--orange)',color:'white',border:'none',padding:13,borderRadius:8,fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:'1rem',cursor:'pointer',marginBottom:16}}>
                 {t('prod_request_quote', lang)}
               </button>
-              <div style={{display:'flex',gap:12,alignItems:'center',cursor:'pointer',padding:'12px 0',borderTop:'1px solid var(--cream-dark)'}} onClick={() => navigate(emp?.slug ? '/site/'+emp.slug : '/empresa/'+emp?.id)}>
+              <div style={{display:'flex',gap:12,alignItems:'center',cursor:'pointer',padding:'12px 0',borderTop:'1px solid var(--cream-dark)'}} onClick={() => navigate(emp?.slug ? '/e/'+emp.slug : '/empresa/'+emp?.id)}>
                 <div className="company-logo-box" style={{width:44,height:44,flexShrink:0,fontFamily:"'Syne',sans-serif",fontWeight:800,color:'var(--navy)'}}>
                   {emp?.logo_url ? <img src={emp.logo_url} style={{width:'100%',height:'100%',objectFit:'cover'}} alt="logo" /> : emp?.razon_social?.charAt(0)||'🏢'}
                 </div>
@@ -136,6 +137,14 @@ export default function ProductoPublico({ bySlug }) {
       </div>
 
       {rfqOpen && <RFQModal tipo="producto" empresaId={emp?.id} productoId={prod.id} productoNombre={prod.nombre} lang={lang} onClose={() => setRfqOpen(false)} />}
+      {/* Botón denunciar */}
+      <div style={{textAlign:'center',padding:'8px 0 24px'}}>
+        <button onClick={() => setDenunciaOpen(true)}
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:'.75rem',color:'var(--text-muted)',textDecoration:'underline',opacity:.6}}>
+          {lang==='en' ? 'Report this product' : 'Denunciar este producto'}
+        </button>
+      </div>
+      {denunciaOpen && <DenunciaModal tipo="producto" refId={prod?.id} lang={lang} onClose={() => setDenunciaOpen(false)} />}
     </>
   )
 }

@@ -46,6 +46,7 @@ export default function EmpresaPublica({ bySlug }) {
   const [empresa,  setEmpresa]  = useState(null)
   const [products, setProducts] = useState([])
   const [loading,  setLoading]  = useState(true)
+  const [denunciaOpen,  setDenunciaOpen]  = useState(false)
   const [rfqOpen,      setRfqOpen]      = useState(false)
   const [contactoOpen, setContactoOpen] = useState(false)
 
@@ -272,6 +273,15 @@ export default function EmpresaPublica({ bySlug }) {
             )}
           </div>
         </div>
+      </div>
+
+      {denunciaOpen && <DenunciaModal tipo="empresa" refId={empresa.id} lang={lang} onClose={() => setDenunciaOpen(false)} />}
+      {/* Botón denunciar */}
+      <div style={{textAlign:'center',padding:'8px 0 24px'}}>
+        <button onClick={() => setDenunciaOpen(true)}
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:'.75rem',color:'var(--text-muted)',textDecoration:'underline',opacity:.6}}>
+          {lang==='en' ? 'Report this listing' : 'Denunciar este perfil'}
+        </button>
       </div>
 
       {rfqOpen      && <RFQModal tipo="empresa" empresaId={empresa.id} lang={lang} onClose={() => setRfqOpen(false)} />}
