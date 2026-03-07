@@ -9,21 +9,19 @@ export function AppProvider({ children }) {
   const [empresa,    setEmpresa]    = useState(null)
   const [moderador,  setModerador]  = useState(false)
   const [lang,       setLangState]  = useState(() => localStorage.getItem('xared_lang') || 'es')
-  const [loading,    setLoading]    = useState(false) // false por defecto — no bloquear rutas públicas
-  const [empresaReady, setEmpresaReady] = useState(false) // true cuando empresa ha cargado (o no existe)
+  const [loading,    setLoading]    = useState(false)
 
   const setLang = (l) => { setLangState(l); localStorage.setItem('xared_lang', l) }
 
   const loadSession = async (u) => {
     setUser(u)
-    if (!u || u.email === ADMIN_EMAIL) { setEmpresa(null); setEmpresaReady(true); return }
+    if (!u || u.email === ADMIN_EMAIL) { setEmpresa(null); return }
     const [{ data: emp }, { data: mod }] = await Promise.all([
       supabase.from('empresas').select('*').eq('user_id', u.id).single(),
       supabase.from('moderadores').select('id,activo').eq('user_id', u.id).eq('activo', true).maybeSingle(),
     ])
     setEmpresa(emp || null)
     setModerador(!!mod)
-    setEmpresaReady(true)
   }
 
   const logout = async () => {
@@ -31,7 +29,6 @@ export function AppProvider({ children }) {
     setEmpresa(null)
     setModerador(false)
     await supabase.auth.signOut().catch(() => {})
-    // Limpiar todas las claves sb- de localStorage
     try {
       for (const key of Object.keys(localStorage)) {
         if (key.startsWith('sb-')) localStorage.removeItem(key)
@@ -48,14 +45,10 @@ export function AppProvider({ children }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        // Hay sesión activa — mostrar spinner mientras carga la empresa
         setLoading(true)
         loadSession(session.user).finally(() => setLoading(false))
-      } else {
-        // Sin sesión: marcar empresa como lista (no hay nada que cargar)
-        setEmpresaReady(true)
       }
-    }).catch(() => { setLoading(false); setEmpresaReady(true) })
+    }).catch(() => setLoading(false))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
@@ -69,7 +62,7 @@ export function AppProvider({ children }) {
   }, [])
 
   return (
-    <AppContext.Provider value={{ user, empresa, setEmpresa, moderador, lang, setLang, loading, empresaReady, loadSession, logout, refreshEmpresa }}>
+    <AppContext.Provider value={{ user, empresa, setEmpresa, moderador, lang, setLang, loading, loadSession, logout, refreshEmpresa }}>
       {children}
     </AppContext.Provider>
   )
