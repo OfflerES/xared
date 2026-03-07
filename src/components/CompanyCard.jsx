@@ -30,7 +30,7 @@ export default function CompanyCard({ empresa, dark, variant }) {
     <div
       className={"company-card" + (variant === 'spain' ? ' spain-card' : variant === 'latam' ? ' latam-card' : '') + (isPaid ? ' premium' : '')}
       style={borderStyle}
-      onClick={() => navigate(empresa.slug ? '/e/' + empresa.slug : '/empresa/' + empresa.id)}
+      onClick={() => navigate(empresa.slug ? '/site/' + empresa.slug : '/empresa/' + empresa.id)}
     >
       <div className="company-logo-box" style={dark ? {background:'rgba(255,255,255,0.08)'} : {}}>
         {empresa.logo_url

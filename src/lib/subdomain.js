@@ -1,9 +1,8 @@
-// ── Mapa completo de subdominios → región/país ────────────────────────────────
+// Mapa completo de subdominios → región/país
 // Cada entrada: subdominio → { region, paisSlug? }
-// paisSlug es el slug usado en las rutas de Directorio (/eu/france, /latam/mexico, etc.)
 
 export const SUBDOMAIN_MAP = {
-  // Regiones hub
+  // Hubs regionales
   'spain':   { region: 'spain',  paisSlug: null },
   'eu':      { region: 'ue',     paisSlug: null },
   'latam':   { region: 'latam',  paisSlug: null },
@@ -36,9 +35,6 @@ export const SUBDOMAIN_MAP = {
   'sweden':         { region: 'ue', paisSlug: 'sweden' },
   'slovenia':       { region: 'ue', paisSlug: 'slovenia' },
   'slovakia':       { region: 'ue', paisSlug: 'slovakia' },
-
-  // España como país UE (subdominio spain → directorio España)
-  'spain-country':  { region: 'ue', paisSlug: 'spain' },
 
   // Países LATAM
   'mexico':             { region: 'latam', paisSlug: 'mexico' },
@@ -73,13 +69,12 @@ export const SUBDOMAIN_MAP = {
  *   localhost         → null
  */
 export function detectSubdomain() {
-  const hostname = window.location.hostname  // e.g. "france.xared.com"
+  const hostname = window.location.hostname
   const parts    = hostname.split('.')
 
-  // localhost o dominio raíz (xared.com, www.xared.com) → sin subdominio
   if (parts.length <= 2) return null
   if (parts[0] === 'www') return null
 
-  const sub = parts[0].toLowerCase()  // "france"
+  const sub = parts[0].toLowerCase()
   return SUBDOMAIN_MAP[sub] || null
 }

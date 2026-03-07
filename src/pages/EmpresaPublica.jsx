@@ -47,9 +47,9 @@ export default function EmpresaPublica({ bySlug }) {
   const [rfqOpen,      setRfqOpen]      = useState(false)
   const [contactoOpen, setContactoOpen] = useState(false)
 
-  // ── Canónica: siempre xared.com/e/:slug ──────────────────────────────────
+  // ── Canónica: siempre xared.com/site/:slug ──────────────────────────────────
   // null mientras empresa carga = no inyecta nada todavía
-  useCanonical(empresa?.slug ? '/e/' + empresa.slug : null)
+  useCanonical(empresa?.slug ? '/site/' + empresa.slug : null)
 
   useEffect(() => {
     const load = async () => {
@@ -164,7 +164,7 @@ export default function EmpresaPublica({ bySlug }) {
                   {products.map(p => {
                     const foto = (p.producto_fotos||[]).sort((a,b)=>a.orden-b.orden)[0]?.url
                     return (
-                      <div key={p.id} className="company-card" onClick={() => navigate(empresa.slug && p.slug ? '/e/' + empresa.slug + '/' + p.slug : '/producto/' + p.id)} style={{cursor:'pointer'}}>
+                      <div key={p.id} className="company-card" onClick={() => navigate(empresa.slug && p.slug ? '/site/' + empresa.slug + '/' + p.slug : '/producto/' + p.id)} style={{cursor:'pointer'}}>
                         <div className="company-logo-box">{foto ? <img src={foto} alt={p.nombre} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:8}} /> : (p.categorias?.icono||'📦')}</div>
                         <div className="company-name" style={{fontSize:'.9rem'}}>{p.nombre}</div>
                         <div className="company-sector">{p.categorias?.icono||''} {p.categorias?.nombre||''}</div>

@@ -73,7 +73,7 @@ export default function Nav() {
                   <div style={{padding:'8px 14px',borderBottom:'1px solid var(--cream-dark)',fontSize:'.72rem',color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>
                     {empresa?.razon_social || user.email}
                   </div>
-                  <button onClick={() => handleNav(empresa?.slug ? '/e/' + empresa.slug : '/dashboard')}
+                  <button onClick={() => handleNav(empresa?.slug ? '/site/' + empresa.slug : '/dashboard')}
                     style={{width:'100%',textAlign:'left',padding:'11px 16px',border:'none',background:'none',cursor:'pointer',fontSize:'.88rem',color:'var(--navy)',display:'flex',alignItems:'center',gap:10,fontFamily:"'DM Sans',sans-serif",fontWeight:500}}
                     onMouseOver={e=>e.currentTarget.style.background='var(--cream)'}
                     onMouseOut={e=>e.currentTarget.style.background='none'}>

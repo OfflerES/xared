@@ -344,7 +344,7 @@ export default function Directorio({ region, subPais, showAll }) {
 
   const renderProductCard = (p) => {
     const foto  = (p.producto_fotos || []).sort((a, b) => a.orden - b.orden)[0]?.url
-    const url   = p.empresas?.slug && p.slug ? '/e/' + p.empresas.slug + '/' + p.slug : '/producto/' + p.id
+    const url   = p.empresas?.slug && p.slug ? '/site/' + p.empresas.slug + '/' + p.slug : '/producto/' + p.id
     const plan  = p.empresas?.plan || 'gratuito'
     const color = PLAN_BORDER[plan] || PLAN_BORDER.gratuito
     const shdw  = PLAN_SHADOW[plan] || 'none'

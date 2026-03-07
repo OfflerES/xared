@@ -21,12 +21,9 @@ import Mantenimiento from './pages/Mantenimiento'
 import { ADMIN_EMAIL } from './lib/supabase'
 import BannerPublicitario from './components/BannerPublicitario'
 
-// Detectar subdominio una sola vez al cargar
 const SUBDOMAIN = detectSubdomain()
 
-// ── Rutas protegidas ──────────────────────────────────────────────────────────
-// Espera a que loading sea false antes de decidir si redirigir.
-// Así evitamos que una recarga mande a /login mientras Supabase restaura la sesión.
+// Rutas protegidas — espera a que loading sea false antes de redirigir
 function PrivateRoute({ children, condition }) {
   const { loading } = useApp()
   if (loading) return (
@@ -36,6 +33,37 @@ function PrivateRoute({ children, condition }) {
     </div>
   )
   return condition ? children : <Navigate to="/login" />
+}
+
+// Rutas comunes a todos los subdominios y al dominio raíz
+function CommonRoutes({ user, isAdmin, moderador }) {
+  return (
+    <>
+      <Route path="/registro"   element={<Register />} />
+      <Route path="/login"      element={<Login />} />
+      <Route path="/recuperar"  element={<Recover />} />
+      <Route path="/precios"    element={<Pricing />} />
+      <Route path="/publicidad" element={<Publicidad />} />
+      <Route path="/dashboard"
+        element={
+          <PrivateRoute condition={!!user && user.email !== ADMIN_EMAIL}>
+            <Dashboard />
+          </PrivateRoute>
+        } />
+      <Route path="/admin"
+        element={
+          <PrivateRoute condition={isAdmin}>
+            <Admin />
+          </PrivateRoute>
+        } />
+      <Route path="/moderador"
+        element={
+          <PrivateRoute condition={!!moderador}>
+            <Moderador />
+          </PrivateRoute>
+        } />
+    </>
+  )
 }
 
 export default function App() {
@@ -73,7 +101,7 @@ export default function App() {
     </div>
   )
 
-  // ── Subdominio activo ──────────────────────────────────────────────────────
+  // ── Subdominio activo (spain.xared.com, france.xared.com, latam.xared.com, etc.) ──
   if (SUBDOMAIN) {
     const { region, paisSlug } = SUBDOMAIN
     return (
@@ -82,23 +110,10 @@ export default function App() {
         <BannerPublicitario />
         <Routes>
           <Route path="/" element={<Directorio region={region} subPais={paisSlug} />} />
-          <Route path="/registro"   element={<Register />} />
-          <Route path="/login"      element={<Login />} />
-          <Route path="/recuperar"  element={<Recover />} />
-          <Route path="/precios"    element={<Pricing />} />
-          <Route path="/publicidad" element={<Publicidad />} />
-          <Route path="/dashboard"
-            element={
-              <PrivateRoute condition={!!user && user.email !== ADMIN_EMAIL}>
-                <Dashboard />
-              </PrivateRoute>
-            } />
-          <Route path="/cat/:categoria"
-            element={<Directorio region={region} subPais={paisSlug} />} />
-          <Route path="/:empSlug"
-            element={<EmpresaPublica bySlug subdomainRegion={region} />} />
-          <Route path="/:empSlug/:prodSlug"
-            element={<ProductoPublico bySlug />} />
+          <Route path="/cat/:categoria" element={<Directorio region={region} subPais={paisSlug} />} />
+          <Route path="/:empSlug" element={<EmpresaPublica bySlug subdomainRegion={region} />} />
+          <Route path="/:empSlug/:prodSlug" element={<ProductoPublico bySlug />} />
+          {CommonRoutes({ user, isAdmin, moderador })}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         <Footer />
@@ -107,58 +122,47 @@ export default function App() {
   }
 
   // ── Dominio raíz xared.com ─────────────────────────────────────────────────
+  // Solo directorio global + perfiles de empresa + categorías globales
   return (
     <>
       <Nav />
       <BannerPublicitario />
       <Routes>
-        <Route path="/"           element={<Home />} />
-        <Route path="/registro"   element={<Register />} />
-        <Route path="/login"      element={<Login />} />
-        <Route path="/recuperar"  element={<Recover />} />
-        <Route path="/precios"    element={<Pricing />} />
-        <Route path="/publicidad" element={<Publicidad />} />
+        <Route path="/" element={<Home />} />
 
-        <Route path="/es"                            element={<Directorio region="spain" />} />
-        <Route path="/es/cat/:categoria"             element={<Directorio region="spain" />} />
-        <Route path="/eu"                            element={<Directorio region="ue" />} />
-        <Route path="/eu/todo"                       element={<Directorio region="ue" showAll />} />
-        <Route path="/eu/:paisCode"                  element={<Directorio region="ue" />} />
-        <Route path="/eu/:paisCode/cat/:categoria"   element={<Directorio region="ue" />} />
-        <Route path="/latam"                         element={<Directorio region="latam" />} />
-        <Route path="/latam/todo"                    element={<Directorio region="latam" showAll />} />
-        <Route path="/latam/:paisCode"               element={<Directorio region="latam" />} />
-        <Route path="/latam/:paisCode/cat/:categoria" element={<Directorio region="latam" />} />
-        <Route path="/global"                        element={<Directorio region="global" />} />
-        <Route path="/global/cat/:categoria"         element={<Directorio region="global" />} />
+        {/* Directorio global */}
+        <Route path="/cat/:categoria" element={<Directorio region="global" />} />
 
-        <Route path="/e/:slug"              element={<EmpresaPublica bySlug />} />
+        {/* Perfiles canónicos de empresa y producto */}
+        <Route path="/site/:slug"              element={<EmpresaPublica bySlug />} />
         <Route path="/empresa/:id"          element={<EmpresaPublica />} />
-        <Route path="/e/:empSlug/:prodSlug" element={<ProductoPublico bySlug />} />
+        <Route path="/site/:empSlug/:prodSlug" element={<ProductoPublico bySlug />} />
         <Route path="/producto/:id"         element={<ProductoPublico />} />
 
-        <Route path="/dashboard"
-          element={
-            <PrivateRoute condition={!!user && user.email !== ADMIN_EMAIL}>
-              <Dashboard />
-            </PrivateRoute>
-          } />
-        <Route path="/admin"
-          element={
-            <PrivateRoute condition={isAdmin}>
-              <Admin />
-            </PrivateRoute>
-          } />
-        <Route path="/moderador"
-          element={
-            <PrivateRoute condition={!!moderador}>
-              <Moderador />
-            </PrivateRoute>
-          } />
+        {/* Redirecciones de rutas antiguas → subdominios correctos */}
+        <Route path="/es"     element={<RedirectToSubdomain sub="spain" />} />
+        <Route path="/es/*"   element={<RedirectToSubdomain sub="spain" />} />
+        <Route path="/eu"     element={<RedirectToSubdomain sub="eu" />} />
+        <Route path="/eu/*"   element={<RedirectToSubdomain sub="eu" />} />
+        <Route path="/latam"  element={<RedirectToSubdomain sub="latam" />} />
+        <Route path="/latam/*" element={<RedirectToSubdomain sub="latam" />} />
+        <Route path="/global" element={<Navigate to="/" />} />
+        <Route path="/global/*" element={<Navigate to="/" />} />
 
+        {CommonRoutes({ user, isAdmin, moderador })}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <Footer />
     </>
   )
+}
+
+// Redirige al subdominio correspondiente manteniendo el path
+function RedirectToSubdomain({ sub }) {
+  useEffect(() => {
+    const { hostname, pathname, search } = window.location
+    const baseDomain = hostname.split('.').slice(-2).join('.')  // xared.com
+    window.location.href = `https://${sub}.${baseDomain}${pathname}${search}`
+  }, [sub])
+  return null
 }

@@ -234,7 +234,7 @@ export default function AdminEmpresas() {
                 )}
                 {/* Ver perfil público */}
                 {e.slug && (
-                  <a href={'/e/'+e.slug} target="_blank" rel="noopener" className="admin-btn admin-btn-edit"
+                  <a href={'/site/'+e.slug} target="_blank" rel="noopener" className="admin-btn admin-btn-edit"
                     style={{textDecoration:'none',textAlign:'center'}}>
                     👁
                   </a>
