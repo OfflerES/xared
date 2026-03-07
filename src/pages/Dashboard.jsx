@@ -186,6 +186,8 @@ export default function Dashboard() {
   const [ok,             setOk]             = useState('')
   const [err,            setErr]            = useState('')
   const [saving,         setSaving]         = useState(false)
+  const [logoFile,       setLogoFile]       = useState(null)
+  const [logoUploading,  setLogoUploading]  = useState(false)
   const [productos,      setProductos]      = useState([])
   const [mensajesNew,    setMensajesNew]    = useState(0)
   const [checkoutBanner, setCheckoutBanner] = useState(null) // 'success' | null
@@ -223,10 +225,35 @@ export default function Dashboard() {
     setProductos(data || [])
   }
 
+  const handleLogoChange = (file) => {
+    if (!file) return
+    const allowed = ['image/jpeg','image/jpg','image/png','image/webp']
+    if (!allowed.includes(file.type)) { setErr('Formato no admitido. Usa JPG, PNG o WebP.'); return }
+    if (file.size > 2*1024*1024) { setErr('El logo no puede superar 2MB.'); return }
+    setLogoFile(file)
+  }
+
+  const subirLogo = async () => {
+    if (!logoFile) return form.logo_url || null
+    setLogoUploading(true)
+    try {
+      const ext  = logoFile.name.split('.').pop().toLowerCase()
+      const path = empresa.id + '/logo_' + Date.now() + '.' + ext
+      const { error } = await supabase.storage.from('empresa-logos').upload(path, logoFile, { upsert: true, contentType: logoFile.type })
+      if (error) throw error
+      const { data } = supabase.storage.from('empresa-logos').getPublicUrl(path)
+      return data.publicUrl
+    } finally {
+      setLogoUploading(false)
+    }
+  }
+
   const saveEmpresa = async () => {
     setOk(''); setErr(''); setSaving(true)
     try {
+      const logoUrl = await subirLogo()
       const { error } = await supabase.from('empresas').update({
+        logo_url: logoUrl,
         razon_social: sanitize(form.razon_social),
         descripcion:  sanitize(form.descripcion),
         sector:       sanitize(form.sector),
@@ -368,6 +395,30 @@ export default function Dashboard() {
           </div>
           {ok  && <div className="alert alert-success">{ok}</div>}
           {err && <div className="alert alert-error">{err}</div>}
+          {/* Logo */}
+          <div className="form-group" style={{marginBottom:20}}>
+            <label>Logo de empresa</label>
+            <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+              {(logoFile ? URL.createObjectURL(logoFile) : form.logo_url) ? (
+                <img
+                  src={logoFile ? URL.createObjectURL(logoFile) : form.logo_url}
+                  alt="logo"
+                  style={{width:80,height:80,objectFit:'contain',borderRadius:8,border:'1px solid var(--border)',background:'white',padding:4}}
+                />
+              ) : (
+                <div style={{width:80,height:80,borderRadius:8,border:'1px solid var(--border)',background:'var(--cream)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'2rem'}}>
+                  🏢
+                </div>
+              )}
+              <div>
+                <label style={{display:'inline-block',padding:'8px 16px',background:'var(--cream-dark)',border:'1px solid var(--border)',borderRadius:8,cursor:'pointer',fontSize:'.82rem',fontWeight:600}}>
+                  {logoUploading ? 'Subiendo...' : (form.logo_url || logoFile) ? 'Cambiar logo' : 'Subir logo'}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" style={{display:'none'}} onChange={e=>handleLogoChange(e.target.files[0])} />
+                </label>
+                <div style={{fontSize:'.73rem',color:'var(--text-muted)',marginTop:6}}>JPG, PNG o WebP · máx. 2MB · recomendado 200×200px</div>
+              </div>
+            </div>
+          </div>
           <div className="form-row">
             <div className="form-group"><label>Razón social</label><input className="form-control" value={form.razon_social||''} onChange={e=>set('razon_social',e.target.value)} /></div>
             <div className="form-group"><label>NIF/CIF</label><input className="form-control" value={form.nif||''} disabled /></div>
