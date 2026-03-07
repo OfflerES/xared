@@ -24,6 +24,20 @@ import BannerPublicitario from './components/BannerPublicitario'
 // Detectar subdominio una sola vez al cargar
 const SUBDOMAIN = detectSubdomain()
 
+// ── Rutas protegidas ──────────────────────────────────────────────────────────
+// Espera a que loading sea false antes de decidir si redirigir.
+// Así evitamos que una recarga mande a /login mientras Supabase restaura la sesión.
+function PrivateRoute({ children, condition }) {
+  const { loading } = useApp()
+  if (loading) return (
+    <div style={{minHeight:'60vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div className="spinner" style={{width:32,height:32,border:'3px solid #D8D2C9',
+        borderTopColor:'#F4600C',borderRadius:'50%',animation:'spin .7s linear infinite'}} />
+    </div>
+  )
+  return condition ? children : <Navigate to="/login" />
+}
+
 export default function App() {
   const { user, moderador } = useApp()
   const [siteEstado, setSiteEstado] = useState(null)
@@ -52,8 +66,6 @@ export default function App() {
     return <Mantenimiento msgEs={maintMsg.es} msgEn={maintMsg.en} />
   }
 
-  // Spinner mientras carga config del sitio — NO desmonta AppProvider
-  // porque App está DENTRO de AppProvider en main.jsx
   if (siteEstado === null) return (
     <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div className="spinner" style={{width:32,height:32,border:'3px solid #D8D2C9',
@@ -76,8 +88,11 @@ export default function App() {
           <Route path="/precios"    element={<Pricing />} />
           <Route path="/publicidad" element={<Publicidad />} />
           <Route path="/dashboard"
-            element={user && user.email !== ADMIN_EMAIL
-              ? <Dashboard /> : <Navigate to="/login" />} />
+            element={
+              <PrivateRoute condition={!!user && user.email !== ADMIN_EMAIL}>
+                <Dashboard />
+              </PrivateRoute>
+            } />
           <Route path="/cat/:categoria"
             element={<Directorio region={region} subPais={paisSlug} />} />
           <Route path="/:empSlug"
@@ -123,12 +138,23 @@ export default function App() {
         <Route path="/producto/:id"         element={<ProductoPublico />} />
 
         <Route path="/dashboard"
-          element={user && user.email !== ADMIN_EMAIL
-            ? <Dashboard /> : <Navigate to="/login" />} />
+          element={
+            <PrivateRoute condition={!!user && user.email !== ADMIN_EMAIL}>
+              <Dashboard />
+            </PrivateRoute>
+          } />
         <Route path="/admin"
-          element={isAdmin ? <Admin /> : <Navigate to="/login" />} />
+          element={
+            <PrivateRoute condition={isAdmin}>
+              <Admin />
+            </PrivateRoute>
+          } />
         <Route path="/moderador"
-          element={moderador ? <Moderador /> : <Navigate to="/login" />} />
+          element={
+            <PrivateRoute condition={!!moderador}>
+              <Moderador />
+            </PrivateRoute>
+          } />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

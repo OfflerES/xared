@@ -5,11 +5,11 @@ import { logAction } from '../lib/audit'
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  const [user,       setUser]       = useState(null)
-  const [empresa,    setEmpresa]    = useState(null)
-  const [moderador,  setModerador]  = useState(false)
-  const [lang,       setLangState]  = useState(() => localStorage.getItem('xared_lang') || 'es')
-  const [loading,    setLoading]    = useState(false)
+  const [user,      setUser]      = useState(null)
+  const [empresa,   setEmpresa]   = useState(null)
+  const [moderador, setModerador] = useState(false)
+  const [lang,      setLangState] = useState(() => localStorage.getItem('xared_lang') || 'es')
+  const [loading,   setLoading]   = useState(true)
 
   const setLang = (l) => { setLangState(l); localStorage.setItem('xared_lang', l) }
 
@@ -17,7 +17,7 @@ export function AppProvider({ children }) {
     setUser(u)
     if (!u || u.email === ADMIN_EMAIL) { setEmpresa(null); return }
     const [{ data: emp }, { data: mod }] = await Promise.all([
-      supabase.from('empresas').select('*').eq('user_id', u.id).single(),
+      supabase.from('empresas').select('*').eq('user_id', u.id).maybeSingle(),
       supabase.from('moderadores').select('id,activo').eq('user_id', u.id).eq('activo', true).maybeSingle(),
     ])
     setEmpresa(emp || null)
@@ -38,28 +38,57 @@ export function AppProvider({ children }) {
 
   const refreshEmpresa = async () => {
     if (!user || user.email === ADMIN_EMAIL) return
-    const { data } = await supabase.from('empresas').select('*').eq('user_id', user.id).single()
+    const { data } = await supabase.from('empresas').select('*').eq('user_id', user.id).maybeSingle()
     setEmpresa(data || null)
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setLoading(true)
-        loadSession(session.user).finally(() => setLoading(false))
-      }
-    }).catch(() => setLoading(false))
+    const safetyTimeout = setTimeout(() => setLoading(false), 8000)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        await loadSession(session.user)
-        logAction('login', 'login', { userId: session.user.id, metadata: { email: session.user.email } })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        const handleAuth = async () => {
+          try {
+            if (session?.user) {
+              await loadSession(session.user)
+            } else {
+              setUser(null)
+              setEmpresa(null)
+            }
+          } catch(e) {
+            setEmpresa(null)
+          } finally {
+            clearTimeout(safetyTimeout)
+            setLoading(false)
+          }
+          if (event === 'SIGNED_IN' && session?.user) {
+            logAction('login', 'login', { userId: session.user.id, metadata: { email: session.user.email } }).catch(() => {})
+          }
+        }
+        handleAuth()
       }
-      if (event === 'SIGNED_OUT') { setUser(null); setEmpresa(null); setModerador(false) }
+
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        setUser(session.user)
+        supabase.from('empresas').select('*').eq('user_id', session.user.id).maybeSingle()
+          .then(({ data: emp }) => { if (emp) setEmpresa(emp) })
+          .catch(() => {})
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setEmpresa(null)
+        setModerador(false)
+        clearTimeout(safetyTimeout)
+        setLoading(false)
+      }
     })
 
-    return () => subscription.unsubscribe()
-  }, [])
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(safetyTimeout)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AppContext.Provider value={{ user, empresa, setEmpresa, moderador, lang, setLang, loading, loadSession, logout, refreshEmpresa }}>
