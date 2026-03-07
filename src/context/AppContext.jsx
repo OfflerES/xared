@@ -51,9 +51,11 @@ export function AppProvider({ children }) {
         // Hay sesión activa — mostrar spinner mientras carga la empresa
         setLoading(true)
         loadSession(session.user).finally(() => setLoading(false))
+      } else {
+        // Sin sesión: marcar empresa como lista (no hay nada que cargar)
+        setEmpresaReady(true)
       }
-      // Sin sesión: loading ya es false, la web carga inmediatamente
-    }).catch(() => setLoading(false))
+    }).catch(() => { setLoading(false); setEmpresaReady(true) })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
