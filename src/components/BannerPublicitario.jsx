@@ -87,7 +87,7 @@ export default function BannerPublicitario() {
   }, [path, rutaExcluida])
 
   useEffect(() => {
-    if (!campana || reportado.current) return
+    if (!campana || reportado.current || campana._tipo === 'adsense') return
     reportado.current = true
     supabase.functions.invoke('banner-impresion', {
       body: {
@@ -108,6 +108,8 @@ export default function BannerPublicitario() {
 
   if (!visible || !campana) return null
 
+  const isAdsense = campana._tipo === 'adsense'
+
   return (
     <div style={{
       width:          '100%',
@@ -118,6 +120,7 @@ export default function BannerPublicitario() {
       alignItems:     'center',
       padding:        '6px 16px',
       position:       'relative',
+      minHeight:      isAdsense ? 100 : 'auto',
     }}>
       <span style={{
         position:      'absolute',
@@ -130,36 +133,102 @@ export default function BannerPublicitario() {
       }}>
         Publicidad
       </span>
-      <div onClick={handleClick} style={{cursor:'pointer', lineHeight:0}}>
-        <img
-          src={campana.banner_url}
-          alt={campana.nombre || 'Publicidad'}
+
+      {isAdsense ? (
+        <AdSenseSlot onClose={() => setVisible(false)} />
+      ) : (
+        <div onClick={handleClick} style={{cursor:'pointer', lineHeight:0}}>
+          <img
+            src={campana.banner_url}
+            alt={campana.nombre || 'Publicidad'}
+            style={{
+              width:        '100%',
+              maxWidth:     728,
+              height:       90,
+              objectFit:    'cover',
+              borderRadius: 6,
+              display:      'block',
+            }}
+            onError={() => setVisible(false)}
+          />
+        </div>
+      )}
+
+      {!isAdsense && (
+        <button
+          onClick={() => setVisible(false)}
           style={{
-            width:        '100%',
-            maxWidth:     728,
-            height:       90,
-            objectFit:    'cover',
-            borderRadius: 6,
-            display:      'block',
+            position:   'absolute',
+            top:        4,
+            right:      8,
+            background: 'none',
+            border:     'none',
+            cursor:     'pointer',
+            fontSize:   '.75rem',
+            color:      'var(--text-muted)',
+            lineHeight: 1,
           }}
-          onError={() => setVisible(false)}
-        />
-      </div>
-      <button
-        onClick={() => setVisible(false)}
-        style={{
-          position:   'absolute',
-          top:        4,
-          right:      8,
-          background: 'none',
-          border:     'none',
-          cursor:     'pointer',
-          fontSize:   '.75rem',
-          color:      'var(--text-muted)',
-          lineHeight: 1,
-        }}
-        title="Cerrar"
-      >
+          title="Cerrar"
+        >
+          X
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Componente AdSense — inyecta script + ins cuando hay slot configurado
+function AdSenseSlot({ onClose }) {
+  const slotRef = useRef(null)
+  const [slotId, setSlotId] = useState(null)
+  const [noSlot, setNoSlot] = useState(false)
+
+  useEffect(() => {
+    supabase.from('config').select('valor').eq('clave', 'adsense_slot').maybeSingle().then(({ data }) => {
+      if (data?.valor?.trim()) {
+        setSlotId(data.valor.trim())
+      } else {
+        setNoSlot(true)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!slotId || !slotRef.current) return
+    try {
+      // Cargar script AdSense si no está ya cargado
+      if (!document.querySelector('script[src*="adsbygoogle"]')) {
+        const script = document.createElement('script')
+        script.async = true
+        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8285528910683262'
+        script.crossOrigin = 'anonymous'
+        document.head.appendChild(script)
+      }
+      // Activar el slot
+      ;(window.adsbygoogle = window.adsbygoogle || []).push({})
+    } catch(e) {
+      console.warn('AdSense error:', e)
+    }
+  }, [slotId])
+
+  // Sin slot configurado — no mostrar nada
+  if (noSlot) return null
+
+  if (!slotId) return null
+
+  return (
+    <div style={{position:'relative', maxWidth:728, width:'100%'}}>
+      <ins
+        ref={slotRef}
+        className="adsbygoogle"
+        style={{display:'block', width:'100%', height:90}}
+        data-ad-client="ca-pub-8285528910683262"
+        data-ad-slot={slotId}
+        data-ad-format="horizontal"
+        data-full-width-responsive="false"
+      />
+      <button onClick={onClose}
+        style={{position:'absolute',top:2,right:2,background:'none',border:'none',cursor:'pointer',fontSize:'.75rem',color:'var(--text-muted)'}}>
         X
       </button>
     </div>
